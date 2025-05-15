@@ -37,6 +37,30 @@ const Login = () => {
       if (error) throw error;
 
       if (data.user) {
+        // Comprobar si existe el perfil
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (!profile) {
+          // Crear perfil si no existe
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: data.user.id,
+                name: data.user.user_metadata?.name || '',
+                email: data.user.email
+              }
+            ]);
+          if (insertError) {
+            setError('Error creando el perfil de usuario: ' + insertError.message);
+            setLoading(false);
+            return;
+          }
+        }
         navigate('/dashboard');
       }
     } catch (error) {

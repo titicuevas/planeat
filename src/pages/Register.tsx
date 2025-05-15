@@ -30,6 +30,7 @@ const Register = () => {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -106,36 +107,7 @@ const Register = () => {
 
       if (error) throw error;
 
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              name: formData.name,
-              email: formData.email
-            }
-          ]);
-
-        if (profileError) throw profileError;
-
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password
-        });
-
-        if (signInError) throw signInError;
-
-        navigate('/dashboard', {
-          state: {
-            message: {
-              type: 'success',
-              title: '¡Bienvenido a Planeat!',
-              description: 'Te hemos enviado un correo de verificación. Puedes seguir usando la aplicación mientras lo verificas.'
-            }
-          }
-        });
-      }
+      setSuccess(true);
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
@@ -164,6 +136,19 @@ const Register = () => {
         return 'bg-gray-200';
     }
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100">
+        <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg text-center">
+          <h2 className="text-2xl font-bold text-green-700 mb-4">¡Registro exitoso!</h2>
+          <p className="mb-4">Hemos enviado un correo de confirmación a <b>{formData.email}</b>.</p>
+          <p className="mb-6">Por favor, revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.</p>
+          <Link to="/login" className="inline-block px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors">Ir a iniciar sesión</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
