@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@chakra-ui/table": "^2.1.0"
+  }
+}
