@@ -14,6 +14,9 @@ const Login = () => {
 
   // Obtener mensaje de éxito del registro si existe
   const successMessage = location.state?.message;
+  // Detectar si la URL contiene ?confirmed=true
+  const params = new URLSearchParams(location.search);
+  const confirmed = params.get('confirmed') === 'true';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -84,6 +87,12 @@ const Login = () => {
             </Link>
           </p>
         </div>
+
+        {confirmed && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <span className="block sm:inline">¡Correo confirmado correctamente! Ahora puedes iniciar sesión.</span>
+          </div>
+        )}
 
         {successMessage && (
           <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded relative" role="alert">

@@ -143,8 +143,11 @@ const Register = () => {
         <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg text-center">
           <h2 className="text-2xl font-bold text-green-700 mb-4">¡Registro exitoso!</h2>
           <p className="mb-4">Hemos enviado un correo de confirmación a <b>{formData.email}</b>.</p>
-          <p className="mb-6">Por favor, revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.</p>
-          <Link to="/login" className="inline-block px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors">Ir a iniciar sesión</Link>
+          <p className="mb-4">Por favor, revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.</p>
+          <p className="mb-6 text-gray-600">Una vez confirmes tu correo, podrás iniciar sesión y personalizar tu experiencia en Planeat.</p>
+          <Link to="/login" className="inline-block px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors mb-2">Ir a iniciar sesión</Link>
+          <br />
+          <button onClick={() => window.close()} className="mt-2 px-4 py-2 text-sm text-gray-500 hover:underline">Cerrar esta página</button>
         </div>
       </div>
     );
