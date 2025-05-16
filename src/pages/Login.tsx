@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 
@@ -11,12 +11,22 @@ const Login = () => {
     email: '',
     password: ''
   });
+  const [recuerdame, setRecuerdame] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Obtener mensaje de éxito del registro si existe
   const successMessage = location.state?.message;
   // Detectar si la URL contiene ?confirmed=true
   const params = new URLSearchParams(location.search);
   const confirmed = params.get('confirmed') === 'true';
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+    };
+    checkAuth();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -41,7 +51,7 @@ const Login = () => {
 
       if (data.user) {
         // Comprobar si existe el perfil
-        const { data: profile, error: profileError } = await supabase
+        let { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
@@ -63,8 +73,36 @@ const Login = () => {
             setLoading(false);
             return;
           }
+          // Volver a recuperar el perfil recién creado
+          const { data: newProfile, error: newProfileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+          profile = newProfile;
         }
-        navigate('/dashboard');
+        // Si NO está marcado 'Recuérdame', mueve la sesión a sessionStorage
+        if (!recuerdame) {
+          const key = Object.keys(localStorage).find(k => k.includes('sb-') && k.includes('-auth-token'));
+          if (key) {
+            const session = localStorage.getItem(key);
+            if (session) {
+              sessionStorage.setItem(key, session);
+              localStorage.removeItem(key);
+            }
+          }
+        }
+        // Redirección según si el perfil está completo
+        const userProfile = profile || {
+          name: data.user.user_metadata?.name || '',
+          goal: null,
+          intolerances: null
+        };
+        if (!userProfile.name || !userProfile.goal || !userProfile.intolerances || userProfile.intolerances.length === 0) {
+          navigate('/perfil');
+        } else {
+          navigate('/inicio');
+        }
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error al iniciar sesión');
@@ -72,6 +110,34 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  // Si el usuario ya está autenticado, mostrar botón de cerrar sesión
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="absolute top-4 right-4">
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              setIsAuthenticated(false);
+              navigate('/login');
+            }}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+        <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Ya has iniciado sesión
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Si deseas cambiar de cuenta, primero cierra la sesión.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -148,10 +214,12 @@ const Login = () => {
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
+                checked={recuerdame}
+                onChange={e => setRecuerdame(e.target.checked)}
                 className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                Recordarme
+                Recuérdame
               </label>
             </div>
 

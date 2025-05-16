@@ -2,11 +2,10 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../config/supabase'
 import { Dialog } from '@headlessui/react'
-import { generateMenuWithGemini } from '../api/gemini'
-import { Fragment } from 'react'
+import { generateMenuWithGemini, testGeminiAPI } from '../api/gemini'
 import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import Swal from 'sweetalert2'
+import type { Session } from '@supabase/supabase-js'
 
 interface Profile {
   id: string
@@ -83,9 +82,138 @@ function getPlatosNoAptos(menu: any, intolerancias: string[]) {
   return platosNoAptos;
 }
 
-export default function Dashboard() {
+// Definir interfaz para las comidas de un día
+interface DiaComidas {
+  desayuno: string;
+  comida: string;
+  cena: string;
+  'snack mañana': string;
+  'snack tarde': string;
+}
+
+function normalizaMenuConSnacks(menu: Record<string, Partial<DiaComidas>>): Record<string, DiaComidas> {
+  const normalizado: Record<string, DiaComidas> = {};
+  for (const dia of WEEK_DAYS) {
+    if (!menu[dia]) continue;
+    normalizado[dia] = {
+      desayuno: menu[dia].desayuno || '-',
+      comida: menu[dia].comida || (menu[dia] as any).almuerzo || '-',
+      cena: menu[dia].cena || '-',
+      'snack mañana': menu[dia]['snack mañana'] || (menu[dia] as any)['snack_manana'] || '-',
+      'snack tarde': menu[dia]['snack tarde'] || (menu[dia] as any)['snack_tarde'] || '-',
+    };
+  }
+  return normalizado;
+}
+
+// Añadir función para obtener el menú normalizado y ordenado para el modal
+function getMenuHorizontal(menu: Record<string, Partial<DiaComidas>>): Record<string, DiaComidas> {
+  const normalizado: Record<string, DiaComidas> = {};
+  for (const dia of WEEK_DAYS) {
+    const comidas = menu[dia] || {};
+    normalizado[dia] = {
+      desayuno: comidas.desayuno || '-',
+      comida: comidas.comida || (comidas as any).almuerzo || '-',
+      cena: comidas.cena || '-',
+      'snack mañana': comidas['snack mañana'] || (comidas as any)['snack_manana'] || '-',
+      'snack tarde': comidas['snack tarde'] || (comidas as any)['snack_tarde'] || '-',
+    };
+  }
+  return normalizado;
+}
+
+// Lista estándar de snacks saludables
+const SNACKS_SALUDABLES = [
+  'Fruta fresca (manzana, plátano, pera, uvas)',
+  'Yogur vegetal',
+  'Palitos de zanahoria con hummus',
+  'Barrita de cereales sin alérgenos',
+  'Galletas de arroz',
+  'Queso fresco vegano',
+  'Batido vegetal',
+  'Tortitas de maíz',
+  'Pepino en rodajas',
+  'Compota de manzana',
+  'Tomates cherry',
+  'Palitos de apio',
+  'Mandarina',
+  'Pera',
+  'Manzana',
+  'Plátano',
+  'Uvas',
+  'Melón',
+  'Sandía',
+  'Barrita energética sin frutos secos',
+];
+
+// Función para filtrar snacks según intolerancias
+function getSnackSaludable(intolerancias: string[]): string {
+  // Palabras clave a evitar según intolerancias
+  const claves = intolerancias.map(i => i.toLowerCase());
+  // Buscar un snack que no contenga ninguna intolerancia
+  const snack = SNACKS_SALUDABLES.find(s =>
+    !claves.some(clave => s.toLowerCase().includes(clave))
+  );
+  // Si no hay ninguno, devolver "Fruta fresca"
+  return snack || 'Fruta fresca';
+}
+
+// Función para calcular el próximo lunes
+function getNextMonday() {
+  const today = new Date();
+  const nextMonday = new Date(today);
+  nextMonday.setDate(today.getDate() + ((8 - today.getDay()) % 7 || 7));
+  return nextMonday;
+}
+
+// Función para estimar macronutrientes y calorías (muy básica, por palabras clave)
+function analizarMenu(menu: Record<string, DiaComidas>) {
+  // Valores estimados por tipo de comida
+  const estimaciones = {
+    carbohidratos: ['arroz', 'pasta', 'pan', 'patata', 'quinoa', 'avena', 'cereal', 'legumbre', 'fruta', 'batata', 'maíz'],
+    proteinas: ['pollo', 'pavo', 'huevo', 'atún', 'salmón', 'carne', 'ternera', 'tofu', 'lenteja', 'yogur', 'queso', 'pescado', 'marisco', 'soja', 'proteína', 'jamón', 'bacalao', 'merluza', 'gambas', 'calamares', 'pechuga', 'hamburguesa', 'legumbre'],
+    grasas: ['aceite', 'aguacate', 'nuez', 'almendra', 'frutos secos', 'mantequilla', 'queso', 'oliva', 'semilla', 'mayonesa', 'sésamo', 'cacahuete', 'chía', 'coco'],
+  };
+  let total = { carbohidratos: 0, proteinas: 0, grasas: 0, calorias: 0 };
+  for (const dia of WEEK_DAYS) {
+    const comidas = menu[dia];
+    if (!comidas) continue;
+    for (const tipo of Object.keys(comidas) as (keyof DiaComidas)[]) {
+      const plato = (comidas[tipo] || '').toLowerCase();
+      if (!plato || plato === '-') continue;
+      // Estimación simple: suma 1 por cada palabra clave encontrada
+      for (const macro in estimaciones) {
+        if (estimaciones[macro as keyof typeof estimaciones].some(k => plato.includes(k))) {
+          total[macro as keyof typeof total] += 1;
+        }
+      }
+      // Calorías estimadas: desayuno/snack 200, comida/cena 400
+      if (tipo === 'desayuno' || tipo.includes('snack')) total.calorias += 200;
+      if (tipo === 'comida' || tipo === 'cena') total.calorias += 400;
+    }
+  }
+  return total;
+}
+
+// Función para saber si hoy es sábado o posterior
+function puedeCrearMenuProximaSemana() {
+  const today = new Date();
+  return today.getDay() >= 6; // 6=sábado, 0=domingo
+}
+
+// Función para obtener la fecha del próximo sábado
+function getNextSaturday() {
+  const today = new Date();
+  const nextSaturday = new Date(today);
+  const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
+  nextSaturday.setDate(today.getDate() + daysUntilSaturday);
+  return nextSaturday;
+}
+
+export default function Inicio({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const [showGoalForm, setShowGoalForm] = useState(false)
   const [goal, setGoal] = useState('')
   const [customGoal, setCustomGoal] = useState('')
@@ -102,49 +230,119 @@ export default function Dashboard() {
   const planTitleRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null)
-  const [menuDetail, setMenuDetail] = useState<any>(null)
+  const [menuDetail, setMenuDetail] = useState<Record<string, DiaComidas> | null>(null)
   const [showMenuModal, setShowMenuModal] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editNote, setEditNote] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
   const [loadingAlternative, setLoadingAlternative] = useState<{dia: string, tipo: string} | null>(null)
+  const [creatingNextWeek, setCreatingNextWeek] = useState(false);
+  const [nextWeekMsg, setNextWeekMsg] = useState('');
+  const [jsonMenu, setJsonMenu] = useState('');
+  const [verSemanaCompleta, setVerSemanaCompleta] = useState(false);
+
+  function getDiasAMostrar() {
+    if (verSemanaCompleta) return WEEK_DAYS;
+    const today = new Date();
+    const diaHoy = today.getDay() === 0 ? 6 : today.getDay() - 1;
+    return WEEK_DAYS.slice(diaHoy);
+  }
 
   useEffect(() => {
     async function getProfileAndPlans() {
+      setLoading(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error('No user found')
-        const { data, error } = await supabase
+        const user = session.user;
+        if (!user) {
+          navigate('/login', { replace: true });
+          setLoading(false);
+          return;
+        }
+
+        // Cargar el perfil
+        let { data: profileData, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single()
-        if (error) throw error
-        setProfile(data)
-        if (!data.goal) setShowGoalForm(true)
-        else if (!data.intolerances || data.intolerances.length === 0) setShowIntoleranceForm(true)
-        // Obtener planes de alimentación
-        const { data: plans } = await supabase
-          .from('meal_plans')
-          .select('id, title, week, created_at, meals, note')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-        setMealPlans(plans || [])
-        // Mostrar automáticamente el menú del plan más reciente
-        if (plans && plans.length > 0) {
-          setSelectedPlan(plans[0])
-          setMenuDetail(plans[0].meals || {})
-          setShowMenuModal(true)
+          .single();
+
+        if (error && error.code === 'PGRST116') {
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert([{
+              id: user.id,
+              name: user.user_metadata?.name || '',
+              email: user.email
+            }]);
+          if (insertError) throw insertError;
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          profileData = newProfile;
+        } else if (error) {
+          showToast('error', 'Error cargando el perfil');
+          setProfileLoaded(true);
+          setLoading(false);
+          return;
         }
-      } catch (error) {
-        console.error('Error loading profile:', error)
-      } finally {
-        setLoading(false)
+
+        if (!profileData) {
+          setProfile({ id: user.id, name: '', goal: null, intolerances: null });
+          setProfileLoaded(true);
+          setLoading(false);
+          navigate('/perfil', { replace: true });
+          return;
+        }
+
+        setProfile(profileData);
+        setProfileLoaded(true);
+        setLoading(false);
+
+        // Cargar los planes de comidas
+        const { data: mealPlansData, error: plansError } = await supabase
+          .from('meal_plans')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('week', { ascending: false });
+
+        if (plansError) {
+          console.error('Error cargando planes:', plansError);
+          showToast('error', 'Error cargando los planes de comidas');
+          setLoading(false);
+          return;
+        }
+
+        if (mealPlansData) {
+          setMealPlans(mealPlansData);
+          // Buscar y mostrar el menú de la semana actual
+          const today = new Date();
+          const monday = new Date(today);
+          monday.setHours(0, 0, 0, 0);
+          monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+          const weekStr = monday.toISOString().slice(0, 10);
+
+          const currentWeekPlan = mealPlansData.find(plan => {
+            const planWeek = new Date(plan.week);
+            planWeek.setHours(0, 0, 0, 0);
+            return planWeek.toISOString().slice(0, 10) === weekStr;
+          });
+
+          if (currentWeekPlan) {
+            setSelectedPlan(currentWeekPlan);
+            setMenuDetail(currentWeekPlan.meals);
+          }
+        }
+      } catch (err: any) {
+        console.error('Error:', err);
+        showToast('error', 'Error cargando los datos');
+        setLoading(false);
       }
     }
-    getProfileAndPlans()
-  }, [])
+    getProfileAndPlans();
+  }, [session, navigate]);
 
   useEffect(() => {
     if (selectedPlan) {
@@ -152,6 +350,12 @@ export default function Dashboard() {
       setEditNote(selectedPlan.note || '')
     }
   }, [selectedPlan])
+
+  useEffect(() => {
+    if (profileLoaded && profile && (!profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0)) {
+      navigate('/perfil', { replace: true });
+    }
+  }, [profileLoaded, profile, navigate, session?.user]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -173,7 +377,7 @@ export default function Dashboard() {
       setShowGoalForm(false)
       setShowIntoleranceForm(true)
       setSuccessMsg('¡Objetivo guardado correctamente!')
-    } catch (err) {
+    } catch (err: any) {
       setSuccessMsg('Error guardando el objetivo')
     } finally {
       setSavingGoal(false)
@@ -203,7 +407,7 @@ export default function Dashboard() {
       setProfile(prev => prev ? { ...prev, intolerances } : prev)
       setShowIntoleranceForm(false)
       setSuccessMsg('¡Intolerancias guardadas correctamente!')
-    } catch (err) {
+    } catch (err: any) {
       setSuccessMsg('Error guardando las intolerancias')
     } finally {
       setSavingIntolerances(false)
@@ -218,17 +422,38 @@ export default function Dashboard() {
 
   // Crear nuevo plan (placeholder para IA)
   const handleCreatePlan = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setCreatingPlan(true)
-    setPlanMsg('Generando tu menú semanal personalizado...')
+    e.preventDefault();
+    setCreatingPlan(true);
+    setPlanMsg('Generando tu menú semanal personalizado...');
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user found')
-      const objetivo = profile?.goal || ''
-      const intolerancias = profile?.intolerances || []
-      const menu = await generateMenuWithGemini({ objetivo, intolerancias })
-      const week = new Date().toISOString().slice(0, 10)
-      const title = planTitleRef.current?.value || `Menú semana ${week}`
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+      // Calcular el lunes de la semana actual
+      const today = new Date();
+      const monday = new Date(today);
+      monday.setHours(0, 0, 0, 0);
+      monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      const week = monday.toISOString().slice(0, 10);
+      // Comprobar si ya existe menú para esta semana
+      if (mealPlans.some(plan => {
+        const planWeek = new Date(plan.week);
+        planWeek.setHours(0, 0, 0, 0);
+        return planWeek.toISOString().slice(0, 10) === week;
+      })) {
+        await Swal.fire({
+          title: 'Ya tienes un menú para esta semana',
+          text: 'Solo puedes tener un menú por semana. Puedes editarlo o eliminarlo si lo deseas.',
+          icon: 'info',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#22c55e',
+        });
+        setCreatingPlan(false);
+        return;
+      }
+      const objetivo = profile?.goal || '';
+      const intolerancias = profile?.intolerances || [];
+      const menu = await generateMenuWithGemini({ objetivo, intolerancias });
+      const title = planTitleRef.current?.value || `Menú semana ${week}`;
       const { data: plan, error } = await supabase
         .from('meal_plans')
         .insert([
@@ -236,23 +461,28 @@ export default function Dashboard() {
             user_id: user.id,
             title,
             week,
-            meals: menu, // Menú generado por la IA
+            meals: menu,
           }
         ])
-        .select('id, title, week, created_at')
-        .single()
-      if (error) throw error
-      setMealPlans(prev => [{ ...plan, meals: menu }, ...prev])
-      setShowCreatePlan(false)
-      setPlanMsg('')
-      showToast('success', '¡Plan creado correctamente!')
-    } catch (err) {
-      setPlanMsg('Error creando el plan')
-      showToast('error', 'Error creando el plan')
+        .select('id, title, week, created_at, meals')
+        .single();
+      if (error) throw error;
+      
+      // Actualizar el estado con el nuevo plan
+      const newPlan = { ...plan, meals: menu };
+      setMealPlans(prev => [newPlan, ...prev]);
+      setSelectedPlan(newPlan);
+      setMenuDetail(menu);
+      setShowMenuModal(true);
+      setPlanMsg('');
+      showToast('success', '¡Plan creado correctamente!');
+    } catch (err: any) {
+      setPlanMsg('Error creando el plan');
+      showToast('error', 'Error creando el plan');
     } finally {
-      setCreatingPlan(false)
+      setCreatingPlan(false);
     }
-  }
+  };
 
   // Mostrar menú al hacer clic en una tarjeta
   const handleShowMenu = async (plan: MealPlan) => {
@@ -310,7 +540,7 @@ export default function Dashboard() {
     setSavingEdit(false)
   }
 
-  const handleSuggestAlternative = async (dia: string, tipo: string, platoActual: string) => {
+  const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
     try {
       setLoadingAlternative({dia, tipo});
       showToast('success', 'Buscando alternativa...');
@@ -341,7 +571,7 @@ export default function Dashboard() {
       }
 
       showToast('success', '¡Alternativa sugerida!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error al sugerir alternativa:', err);
       showToast('error', 'No se pudo sugerir alternativa');
     } finally {
@@ -349,7 +579,147 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) {
+  // Generar menú para la próxima semana
+  const handleCreateNextWeekPlan = async () => {
+    setCreatingNextWeek(true);
+    setNextWeekMsg('Generando menú para la próxima semana...');
+    try {
+      if (!session) {
+        setNextWeekMsg('Error: No session found');
+        return;
+      }
+      const user = session.user;
+      if (!user) throw new Error('No user found');
+      // Calcular próximo lunes
+      const today = new Date();
+      const nextMonday = new Date(today);
+      nextMonday.setHours(0, 0, 0, 0);
+      nextMonday.setDate(today.getDate() + ((8 - today.getDay()) % 7 || 7));
+      const week = nextMonday.toISOString().slice(0, 10);
+      // Comprobar si ya existe menú para esa semana
+      if (mealPlans.some(plan => {
+        const planWeek = new Date(plan.week);
+        planWeek.setHours(0, 0, 0, 0);
+        return planWeek.toISOString().slice(0, 10) === week;
+      })) {
+        await Swal.fire({
+          title: 'Ya tienes un menú para la próxima semana',
+          text: 'Solo puedes tener un menú por semana. Puedes editarlo o eliminarlo si lo deseas.',
+          icon: 'info',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#22c55e',
+        });
+        setCreatingNextWeek(false);
+        setTimeout(() => setNextWeekMsg(''), 3500);
+        return;
+      }
+      const objetivo = profile?.goal || '';
+      const intolerancias = profile?.intolerances || [];
+      const menu = await generateMenuWithGemini({ objetivo, intolerancias });
+      const title = `Menú semana ${week}`;
+      const { data: plan, error } = await supabase
+        .from('meal_plans')
+        .insert([
+          {
+            user_id: user.id,
+            title,
+            week,
+            meals: menu,
+          }
+        ])
+        .select('id, title, week, created_at, meals')
+        .single();
+      if (error) {
+        setNextWeekMsg('Error creando el menú de la próxima semana: ' + (error.message || error.details || ''));
+        setCreatingNextWeek(false);
+        setTimeout(() => setNextWeekMsg(''), 3500);
+        return;
+      }
+      setMealPlans(prev => [{ ...plan, meals: menu }, ...prev]);
+      setNextWeekMsg('¡Menú de la próxima semana creado correctamente!');
+    } catch (err: any) {
+      setNextWeekMsg('Error creando el menú de la próxima semana: ' + (err.message || ''));
+    } finally {
+      setCreatingNextWeek(false);
+      setTimeout(() => setNextWeekMsg(''), 3500);
+    }
+  };
+
+  // Obtener el menú de la semana actual
+  const getCurrentWeekMenu = () => {
+    const today = new Date();
+    // Calcular el lunes de esta semana en formato yyyy-MM-dd
+    const monday = new Date(today);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    const weekStr = monday.toISOString().slice(0, 10);
+    
+    // Buscar el plan cuyo week sea igual al lunes de esta semana
+    const plan = mealPlans.find(plan => {
+      const planWeek = new Date(plan.week);
+      planWeek.setHours(0, 0, 0, 0);
+      return planWeek.toISOString().slice(0, 10) === weekStr;
+    });
+
+    if (!plan) return null;
+
+    // Normalizar el menú para asegurar que tenga todos los días y comidas
+    const menuNormalizado = normalizaMenuConSnacks(plan.meals || {});
+    
+    // Filtrar solo los días restantes de la semana
+    const diaHoy = today.getDay() === 0 ? 6 : today.getDay() - 1;
+    const diasRestantes = WEEK_DAYS.slice(diaHoy);
+    const mostrarDias = diasRestantes.length > 0 ? diasRestantes : WEEK_DAYS;
+    
+    const menuFiltrado: Record<string, DiaComidas> = {};
+    for (const dia of mostrarDias) {
+      menuFiltrado[dia] = menuNormalizado[dia] || {
+        desayuno: '-',
+        comida: '-',
+        cena: '-',
+        'snack mañana': '-',
+        'snack tarde': '-',
+      };
+    }
+
+    return { ...plan, meals: menuFiltrado };
+  };
+  const currentWeekPlan = getCurrentWeekMenu();
+
+  // Mostrar Toast de error y botón para cerrar sesión si hay error crítico
+  if (toast && toast.type === 'error') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <span className="block sm:inline">{toast.message}</span>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+        >
+          Cerrar sesión
+        </button>
+      </div>
+    )
+  }
+
+  if (!loading && profileLoaded && (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0)) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <span className="block sm:inline">Tu perfil está incompleto o no has confirmado tu correo. Por favor, completa tu perfil y confirma tu cuenta para continuar.</span>
+        </div>
+        <button
+          onClick={() => navigate('/perfil')}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+        >
+          Ir a completar perfil
+        </button>
+      </div>
+    );
+  }
+
+  if (loading || !profileLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
@@ -358,313 +728,231 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto py-8 px-4 flex flex-col items-center">
-        <div className="w-full flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Bienvenido, {profile?.name || profile?.full_name || 'Usuario'}
-          </h1>
-          <button
-            onClick={handleLogout}
-            className="ml-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-            aria-label="Cerrar sesión"
-          >
-            Cerrar sesión
-          </button>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8">
+      <div className="absolute top-4 right-4">
+        <button
+          onClick={handleLogout}
+          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+        >
+          Cerrar sesión
+        </button>
+      </div>
+      <div className="w-full max-w-2xl bg-white rounded-xl shadow p-6 mb-8">
+        <h1 className="text-3xl font-bold text-green-700 mb-2">¡Bienvenido{profile?.name ? `, ${profile.name}` : ''}!</h1>
+        <div className="text-gray-700 mb-2">
+          <span className="font-semibold">Objetivo:</span> {profile?.goal || 'No especificado'}
         </div>
-        {showGoalForm ? (
-          <form onSubmit={handleGoalSubmit} className="bg-white rounded-xl shadow-md p-6 w-full max-w-md flex flex-col gap-4 items-center">
-            <h2 className="text-xl font-semibold text-green-700 mb-2">¿Cuál es tu objetivo principal?</h2>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-green-500"
-              value={goal}
-              onChange={e => setGoal(e.target.value)}
-              required
-            >
-              <option value="">Selecciona un objetivo...</option>
-              {GOALS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            {goal === 'Otro' && (
-              <input
-                type="text"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-green-500"
-                placeholder="Escribe tu objetivo..."
-                value={customGoal}
-                onChange={e => setCustomGoal(e.target.value)}
-                required
-              />
-            )}
-            <button
-              type="submit"
-              disabled={savingGoal || (!goal && !customGoal)}
-              className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              {savingGoal ? 'Guardando...' : 'Guardar objetivo'}
-            </button>
-          </form>
-        ) : showIntoleranceForm ? (
-          <form onSubmit={handleIntoleranceSubmit} className="bg-white rounded-xl shadow-md p-6 w-full max-w-md flex flex-col gap-4 items-center">
-            <h2 className="text-xl font-semibold text-green-700 mb-2">¿Tienes alguna intolerancia alimentaria?</h2>
-            <div className="w-full grid grid-cols-2 gap-2">
-              {INTOLERANCES.map(intol => (
-                <label key={intol} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedIntolerances.includes(intol)}
-                    onChange={() => handleIntoleranceChange(intol)}
-                    className="accent-green-600"
-                  />
-                  <span>{intol}</span>
-                </label>
-              ))}
-            </div>
-            <input
-              type="text"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-green-500"
-              placeholder="Otras intolerancias (opcional)"
-              value={otherIntolerance}
-              onChange={e => setOtherIntolerance(e.target.value)}
-            />
-            <button
-              type="submit"
-              disabled={savingIntolerances}
-              className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              {savingIntolerances ? 'Guardando...' : 'Guardar intolerancias'}
-            </button>
-          </form>
-        ) : (
-          <>
-            {successMsg && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded mb-4">{successMsg}</div>}
-            <p className="mt-2 text-gray-600 text-center">
-              {profile?.goal
-                ? <>Tu objetivo es: <span className="font-semibold text-green-700">{profile.goal}</span></>
-                : 'Esta es tu página de dashboard. Aquí podrás gestionar tus planes de alimentación.'}
-            </p>
-            {profile?.intolerances && profile.intolerances.length > 0 && (
-              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4 text-green-800">
-                <span className="font-semibold">Intolerancias:</span> {profile.intolerances.join(', ')}
-              </div>
-            )}
-          </>
+        <div className="text-gray-700 mb-2">
+          <span className="font-semibold">Intolerancias:</span> {profile?.intolerances && profile.intolerances.length > 0 ? profile.intolerances.join(', ') : 'Ninguna'}
+        </div>
+        {/* Botón para crear menú solo si no hay menú */}
+        {!currentWeekPlan && (
+          <button
+            onClick={handleCreatePlan}
+            disabled={creatingPlan}
+            className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {creatingPlan ? 'Generando menú...' : 'Crear menú'}
+          </button>
         )}
-        {/* Sección de planes */}
-        {!showGoalForm && !showIntoleranceForm && (
-          <div className="w-full mt-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-green-700">Tus planes de alimentación</h2>
+        {/* Botón para crear menú de la próxima semana solo si ya hay menú */}
+        {currentWeekPlan && (
+          <button
+            onClick={handleCreateNextWeekPlan}
+            disabled={creatingNextWeek || !puedeCrearMenuProximaSemana()}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 ml-2"
+          >
+            {creatingNextWeek
+              ? 'Generando menú de la próxima semana...'
+              : puedeCrearMenuProximaSemana()
+                ? `Crear menú para la próxima semana (${format(getNextMonday(), 'dd/MM/yyyy')})`
+                : `Disponible el ${format(getNextSaturday(), 'dd/MM/yyyy')}`}
+          </button>
+        )}
+        {/* Menú de la semana actual */}
+        <div className="mt-8">
+          <h3 className="text-xl font-bold text-green-700 mb-2">Menú de esta semana</h3>
+          {currentWeekPlan && currentWeekPlan.meals ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border text-sm">
+                <thead>
+                  <tr className="bg-green-50">
+                    <th className="p-2 border">Día</th>
+                    <th className="p-2 border"><span role="img" aria-label="desayuno">🍳</span> Desayuno</th>
+                    <th className="p-2 border"><span role="img" aria-label="comida">🍽️</span> Comida</th>
+                    <th className="p-2 border"><span role="img" aria-label="cena">🌙</span> Cena</th>
+                    <th className="p-2 border"><span role="img" aria-label="snack mañana">☀️</span> Snack mañana</th>
+                    <th className="p-2 border"><span role="img" aria-label="snack tarde">🌆</span> Snack tarde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {WEEK_DAYS.filter(dia => currentWeekPlan && (currentWeekPlan.meals as Record<string, DiaComidas>)[dia]).length === 0 ? (
+                    <tr><td colSpan={6} className="text-center text-gray-500">No hay menú para esta semana.</td></tr>
+                  ) : (
+                    Object.entries(currentWeekPlan ? (currentWeekPlan.meals as Record<string, DiaComidas>) : {}).map(([dia, comidas], idx) => {
+                      const today = new Date();
+                      const diaHoy = today.getDay() === 0 ? 6 : today.getDay() - 1;
+                      const isToday = WEEK_DAYS[diaHoy] === dia;
+                      return (
+                        <tr key={dia} className={isToday ? 'bg-green-100 font-bold' : 'hover:bg-green-50'}>
+                          <td className="p-2 border font-semibold capitalize">{dia.charAt(0).toUpperCase() + dia.slice(1)}</td>
+                          <td className="p-2 border">{comidas.desayuno || '-'} <button className="ml-2 text-xs text-blue-600 underline" onClick={() => handleSuggestAlternative(dia, 'desayuno', comidas.desayuno)} title="Sugerir alternativa">¿Otra?</button></td>
+                          <td className="p-2 border">{comidas.comida || '-'} <button className="ml-2 text-xs text-blue-600 underline" onClick={() => handleSuggestAlternative(dia, 'comida', comidas.comida)} title="Sugerir alternativa">¿Otra?</button></td>
+                          <td className="p-2 border">{comidas.cena || '-'} <button className="ml-2 text-xs text-blue-600 underline" onClick={() => handleSuggestAlternative(dia, 'cena', comidas.cena)} title="Sugerir alternativa">¿Otra?</button></td>
+                          <td className="p-2 border">{comidas['snack mañana'] || '-'}</td>
+                          <td className="p-2 border">{comidas['snack tarde'] || '-'}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-gray-500">Aún no tienes menú para esta semana. ¡Genera uno para empezar!</div>
+          )}
+        </div>
+      </div>
+      <div className="w-full max-w-2xl bg-white rounded-xl shadow p-6">
+        <h2 className="text-2xl font-bold text-green-700 mb-4">Tus planes de alimentación</h2>
+        <div className="space-y-4">
+          {mealPlans.length === 0 && <div className="text-gray-500">Aún no tienes menús generados.</div>}
+          {mealPlans.map(plan => (
+            <div key={plan.id} className="border rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between shadow-sm">
+              <div>
+                <div className="font-semibold text-lg text-green-700">{plan.title}</div>
+                <div className="text-gray-500 text-sm">Semana: {format(new Date(plan.week), 'dd/MM/yyyy')}</div>
+              </div>
               <button
-                onClick={() => setShowCreatePlan(true)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
-                aria-label="Crear nuevo plan"
+                onClick={() => handleShowMenu(plan)}
+                className="mt-2 md:mt-0 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
               >
-                Crear nuevo plan
+                Ver menú
               </button>
             </div>
-            {mealPlans.length === 0 ? (
-              <div className="text-gray-500 text-center py-8">Aún no tienes planes creados.</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mealPlans.map(plan => (
-                  <div key={plan.id} className="card flex flex-col gap-2 cursor-pointer hover:shadow-lg transition relative group" onClick={() => handleShowMenu(plan)}>
-                    <h3 className="text-lg font-semibold text-green-800">{plan.title}</h3>
-                    <span className="text-sm text-gray-500">Semana: {plan.week}</span>
-                    <span className="text-xs text-gray-400">Creado: {format(new Date(plan.created_at), 'd/M/yyyy')}</span>
-                    {plan.note && <span className="text-xs text-green-700 italic">{plan.note}</span>}
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDeletePlan(plan.id) }}
-                      className="absolute top-2 right-2 px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-                      aria-label="Eliminar plan"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {/* Modal para crear plan */}
-        <Dialog open={showCreatePlan} onClose={() => setShowCreatePlan(false)} className="relative z-10">
-          <div className="fixed inset-0 bg-black bg-opacity-30" aria-hidden="true" />
-          <div className="fixed inset-0 flex items-center justify-center p-4">
-            <Dialog.Panel className="relative bg-white rounded-xl shadow-lg p-8 w-full max-w-md mx-auto z-20 flex flex-col items-center">
-              <Dialog.Title className="text-xl font-bold mb-2 text-green-700">Crear nuevo plan de alimentación</Dialog.Title>
-              <p className="mb-4 text-gray-600 text-center">Se generará un menú semanal adaptado a tu objetivo e intolerancias.</p>
-              <form onSubmit={handleCreatePlan} className="w-full flex flex-col gap-4 items-center">
-                <input
-                  ref={planTitleRef}
-                  type="text"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-green-500"
-                  placeholder="Título del plan (opcional)"
-                />
-                <button
-                  type="submit"
-                  disabled={creatingPlan}
-                  className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                  {creatingPlan ? 'Generando...' : 'Crear plan'}
-                </button>
-                {planMsg && <div className="text-green-700 text-center mt-2">{planMsg}</div>}
-              </form>
-            </Dialog.Panel>
-          </div>
-        </Dialog>
-        {/* Modal para mostrar el menú */}
-        <Dialog open={showMenuModal} onClose={() => setShowMenuModal(false)} as="div" className="relative z-20">
-          <div className="fixed inset-0 bg-black bg-opacity-20 transition-opacity duration-300" aria-hidden="true" />
-          <div className="fixed inset-0 flex items-center justify-center p-2 overflow-y-auto">
-            <Dialog.Panel className="relative bg-white rounded-2xl shadow-lg w-full max-w-md sm:max-w-xl mx-auto z-20 flex flex-col border border-gray-100 animate-fade-in max-h-[90vh]">
-              {/* Encabezado sticky */}
-              <div className="sticky top-0 bg-white z-10 pt-4 pb-2 px-4 border-b border-gray-100">
-                <Dialog.Title className="text-xl sm:text-2xl font-bold text-green-700 text-center tracking-tight">Menú semanal</Dialog.Title>
-                {selectedPlan && (
-                  <div className="mt-1 w-full text-center text-gray-600 text-sm">
-                    <span className="font-semibold text-green-700">{profile?.name || profile?.full_name || 'Usuario'}</span> &bull; Semana: <span className="font-semibold">{getWeekRange(selectedPlan.week)}</span>
-                  </div>
-                )}
-              </div>
-              {/* Resumen nutricional */}
-              <div className="w-full flex flex-col items-center gap-2 py-2 bg-green-50 border-b border-green-100">
-                <div className="flex gap-4 justify-center">
-                  <div className="flex flex-col items-center">
-                    <span className="text-green-700 font-bold text-lg">1800</span>
-                    <span className="text-xs text-gray-600">kcal/día</span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-green-700 font-bold text-lg">90g</span>
-                    <span className="text-xs text-gray-600">Proteínas</span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-green-700 font-bold text-lg">220g</span>
-                    <span className="text-xs text-gray-600">Carbohidratos</span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-green-700 font-bold text-lg">60g</span>
-                    <span className="text-xs text-gray-600">Grasas</span>
-                  </div>
-                </div>
-                <span className="text-xs text-gray-400 italic">*Valores estimados. Próximamente: resumen real por IA.</span>
-              </div>
-              {/* Contenido con scroll */}
-              <div className="flex-1 overflow-y-auto px-4 py-2">
-                {selectedPlan && menuDetail && profile?.intolerances && profile.intolerances.length > 0 && (
-                  (() => {
-                    const platosNoAptos = getPlatosNoAptos(menuDetail, profile.intolerances);
-                    return platosNoAptos.length > 0 ? (
-                      <div className="w-full bg-red-50 border border-red-200 text-red-700 rounded p-2 mb-2 text-xs">
-                        <b>Aviso:</b> Se han detectado platos que pueden contener tus intolerancias:
-                        <ul className="list-disc ml-5 mt-1">
-                          {platosNoAptos.map((p, i) => (
-                            <li key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 mb-2">
-                              <div className="flex-1 min-w-0">
-                                {p.dia} - {p.tipo}: <b>{p.plato}</b> (contiene <b>{p.intolerancia}</b>)
-                              </div>
-                              <button
-                                onClick={() => handleSuggestAlternative(p.dia, p.tipo, p.plato)}
-                                className={`mt-1 sm:mt-0 px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 text-xs font-medium transition-colors flex items-center gap-1 ${loadingAlternative && loadingAlternative.dia === p.dia && loadingAlternative.tipo === p.tipo ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                disabled={!!(loadingAlternative && loadingAlternative.dia === p.dia && loadingAlternative.tipo === p.tipo)}
-                              >
-                                {loadingAlternative && loadingAlternative.dia === p.dia && loadingAlternative.tipo === p.tipo ? (
-                                  <svg className="animate-spin h-4 w-4 mr-1 text-green-700" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-                                ) : null}
-                                Sugerir alternativa
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null;
-                  })()
-                )}
-                {menuDetail ? (
-                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {WEEK_DAYS.filter(day => menuDetail[day]).map(day => {
-                      const isToday = new Date().toLocaleDateString('es-ES', { weekday: 'long' }).toLowerCase() === day
-                      return (
-                        <div key={day} className={`bg-white rounded-xl shadow p-3 flex flex-col gap-2 border border-gray-200 ${isToday ? 'ring-2 ring-green-600' : ''} animate-fade-in`}>
-                          <h4 className={`font-bold capitalize mb-1 text-base sm:text-lg text-center tracking-wide ${isToday ? 'text-green-700' : 'text-green-600'}`}>{day}</h4>
-                          <ul className="flex flex-col gap-2">
-                            {['desayuno', 'comida', 'cena'].map(type => (
-                              <li key={type} className="flex items-center gap-2">
-                                <img
-                                  src={mealTypeImages[type]}
-                                  alt={type}
-                                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover border border-gray-200 bg-white shadow-sm"
-                                  onError={e => (e.currentTarget.src = 'data:image/svg+xml;utf8,<svg width=\'56\' height=\'56\' viewBox=\'0 0 24 24\' fill=\'none\' xmlns=\'http://www.w3.org/2000/svg\'><rect width=\'24\' height=\'24\' rx=\'8\' fill=\'%23f3f4f6\'/><path d=\'M7 17l5-5 5 5\' stroke=\'%239ca3af\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>')}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <span className="block font-semibold capitalize text-gray-700 text-xs sm:text-sm">{type}:</span>
-                                  <span
-                                    className="block text-gray-900 text-sm truncate"
-                                    title={menuDetail[day][type]}
-                                  >
-                                    {menuDetail[day][type]}
-                                  </span>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
+          ))}
+        </div>
+      </div>
+      {/* Modal para mostrar el detalle del menú */}
+      <Dialog open={showMenuModal} onClose={() => setShowMenuModal(false)} className="fixed z-50 inset-0 overflow-y-auto">
+        <div className="flex items-center justify-center min-h-screen px-4">
+          <div className="fixed inset-0 bg-black opacity-30" aria-hidden="true" />
+          <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full mx-auto p-6 z-10">
+            <Dialog.Title className="text-2xl font-bold text-green-700 mb-4">{selectedPlan?.title}</Dialog.Title>
+            {menuDetail ? (
+              <div className="overflow-x-auto">
+                {/* Análisis nutricional */}
+                <div className="mb-4 p-4 bg-green-50 rounded-lg shadow flex flex-col md:flex-row md:items-center md:justify-between">
+                  {(() => {
+                    const analisis = analizarMenu(menuDetail);
+                    const totalMacros = analisis.carbohidratos + analisis.proteinas + analisis.grasas;
+                    return (
+                      <>
+                        <div className="text-green-800 font-semibold mb-2 md:mb-0">Análisis nutricional estimado de la semana:</div>
+                        <div className="flex flex-wrap gap-4">
+                          <div><span className="font-bold">Carbohidratos:</span> {analisis.carbohidratos}g ({totalMacros > 0 ? Math.round(analisis.carbohidratos/totalMacros*100) : 0}%)</div>
+                          <div><span className="font-bold">Proteínas:</span> {analisis.proteinas}g ({totalMacros > 0 ? Math.round(analisis.proteinas/totalMacros*100) : 0}%)</div>
+                          <div><span className="font-bold">Grasas:</span> {analisis.grasas}g ({totalMacros > 0 ? Math.round(analisis.grasas/totalMacros*100) : 0}%)</div>
+                          <div><span className="font-bold">Calorías estimadas:</span> {analisis.calorias} kcal</div>
                         </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-gray-500">Cargando menú...</div>
-                )}
-                {/* Edición de nombre y nota */}
-                <div className="w-full flex flex-col items-center mt-4 mb-2">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={e => setEditTitle(e.target.value)}
-                    className="text-lg sm:text-xl font-bold text-green-700 text-center tracking-tight bg-transparent border-b-2 border-green-200 focus:border-green-500 outline-none w-full max-w-xs mb-2"
-                    aria-label="Editar nombre del plan"
-                    disabled={savingEdit}
-                  />
-                  <input
-                    type="text"
-                    value={editNote}
-                    onChange={e => setEditNote(e.target.value)}
-                    className="text-sm text-gray-600 text-center bg-transparent border-b border-gray-200 focus:border-green-400 outline-none w-full max-w-xs"
-                    placeholder="Añade una nota personal..."
-                    aria-label="Nota personal"
-                    disabled={savingEdit}
-                  />
+                      </>
+                    );
+                  })()}
+                </div>
+                <div className="flex justify-end mb-2">
                   <button
-                    onClick={handleSavePlanEdit}
-                    className="mt-2 px-4 py-1 bg-green-600 text-white rounded font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
-                    disabled={savingEdit || (!editTitle.trim() && !editNote.trim())}
-                    aria-label="Guardar cambios del plan"
+                    className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm font-semibold text-gray-700 transition-colors"
+                    onClick={() => setVerSemanaCompleta(v => !v)}
                   >
-                    {savingEdit ? 'Guardando...' : 'Guardar'}
+                    {verSemanaCompleta ? 'Ver días restantes' : 'Ver toda la semana'}
                   </button>
                 </div>
+                <table className="min-w-full border text-xs md:text-sm rounded-xl overflow-hidden shadow">
+                  <thead>
+                    <tr className="bg-green-50">
+                      <th className="p-2 border font-semibold">Comida</th>
+                      {getDiasAMostrar().map((dia, idx) => {
+                        // Calcular la fecha de cada día
+                        const planDate = selectedPlan ? new Date(selectedPlan.week) : new Date();
+                        planDate.setDate(planDate.getDate() + WEEK_DAYS.indexOf(dia));
+                        const fechaStr = `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${planDate.getDate().toString().padStart(2, '0')}/${(planDate.getMonth() + 1).toString().padStart(2, '0')}/${planDate.getFullYear()}`;
+                        // Resaltar el día actual
+                        const today = new Date();
+                        const isToday = today.toDateString() === planDate.toDateString();
+                        return (
+                          <th key={dia} className={`p-2 border font-semibold capitalize${isToday ? ' bg-green-300 text-green-900' : ''}`}>{fechaStr}</th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(['desayuno', 'comida', 'cena', 'snack mañana', 'snack tarde'] as (keyof DiaComidas)[]).map(tipo => (
+                      <tr key={tipo} className="hover:bg-green-50 transition-colors">
+                        <td className="p-2 border font-semibold capitalize bg-green-50">
+                          {tipo === 'desayuno' && '🍳 Desayuno'}
+                          {tipo === 'comida' && '🍽️ Comida'}
+                          {tipo === 'cena' && '🌙 Cena'}
+                          {tipo === 'snack mañana' && '☀️ Snack mañana'}
+                          {tipo === 'snack tarde' && '🌆 Snack tarde'}
+                        </td>
+                        {getDiasAMostrar().map((dia, idx) => {
+                          const comidas = getMenuHorizontal(menuDetail)[dia];
+                          let valor = comidas[tipo] || '-';
+                          // Si es snack y está vacío, rellenar automáticamente
+                          if ((tipo === 'snack mañana' || tipo === 'snack tarde') && (valor === '-' || !valor)) {
+                            valor = getSnackSaludable(profile?.intolerances || []);
+                          }
+                          // Calcular la fecha de cada día para resaltar
+                          const planDate = selectedPlan ? new Date(selectedPlan.week) : new Date();
+                          planDate.setDate(planDate.getDate() + WEEK_DAYS.indexOf(dia));
+                          const today = new Date();
+                          const isToday = today.toDateString() === planDate.toDateString();
+                          return (
+                            <td key={dia} className={`p-2 border text-xs md:text-sm${isToday ? ' bg-green-100 font-bold' : ''}`}
+                              style={{ minWidth: 120 }}>
+                              {valor}
+                              {['desayuno', 'comida', 'cena', 'snack mañana', 'snack tarde'].includes(tipo) && (
+                                <button
+                                  className="ml-2 text-xs text-blue-600 underline"
+                                  onClick={async () => {
+                                    const confirm = await Swal.fire({
+                                      title: '¿Sugerir alternativa?',
+                                      text: '¿Quieres que la IA sugiera una alternativa para este plato/snack?',
+                                      icon: 'question',
+                                      showCancelButton: true,
+                                      confirmButtonText: 'Sí, sugerir',
+                                      cancelButtonText: 'Cancelar',
+                                      reverseButtons: true
+                                    });
+                                    if (confirm.isConfirmed) {
+                                      handleSuggestAlternative(dia, tipo as keyof DiaComidas, valor);
+                                    }
+                                  }}
+                                  title="Sugerir alternativa"
+                                >
+                                  ¿Otra?
+                                </button>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              {/* Botón sticky abajo */}
-              <div className="sticky bottom-0 bg-white z-10 pt-2 pb-4 px-4 border-t border-gray-100 flex justify-center">
-                <button
-                  onClick={() => setShowMenuModal(false)}
-                  className="px-8 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow transition-colors duration-150 text-base sm:text-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
-                  aria-label="Cerrar menú semanal"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </Dialog.Panel>
+            ) : (
+              <div className="text-center text-gray-500">Cargando menú...</div>
+            )}
+            <button
+              onClick={() => setShowMenuModal(false)}
+              className="mt-6 w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition-colors"
+            >
+              Cerrar
+            </button>
           </div>
-        </Dialog>
-        {toast && (
-          <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-3
-            ${toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}
-            animate-fade-in`}
-            style={{ minWidth: 220 }}
-          >
-            <span className="font-semibold">{toast.message}</span>
-            <button onClick={() => setToast(null)} className="ml-2 text-white/80 hover:text-white text-lg">&times;</button>
-          </div>
-        )}
-      </div>
+        </div>
+      </Dialog>
     </div>
   )
 } 
