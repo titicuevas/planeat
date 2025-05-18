@@ -94,13 +94,13 @@ interface DiaComidas {
 function normalizaMenuConSnacks(menu: Record<string, Partial<DiaComidas>>): Record<string, DiaComidas> {
   const normalizado: Record<string, DiaComidas> = {};
   for (const dia of WEEK_DAYS) {
-    if (!menu[dia]) continue;
+    const comidas = menu[dia] || {};
     normalizado[dia] = {
-      desayuno: menu[dia].desayuno || '-',
-      comida: menu[dia].comida || (menu[dia] as any).almuerzo || '-',
-      cena: menu[dia].cena || '-',
-      'snack mañana': menu[dia]['snack mañana'] || (menu[dia] as any)['snack_manana'] || '-',
-      'snack tarde': menu[dia]['snack tarde'] || (menu[dia] as any)['snack_tarde'] || '-',
+      desayuno: comidas.desayuno || comidas.Desayuno || '-',
+      comida: comidas.comida || comidas.Comida || comidas.almuerzo || comidas.Almuerzo || '-',
+      cena: comidas.cena || comidas.Cena || '-',
+      'snack mañana': comidas['snack mañana'] || comidas['snack_manana'] || comidas['Snack Mañana'] || comidas['Snack_manana'] || '-',
+      'snack tarde': comidas['snack tarde'] || comidas['snack_tarde'] || comidas['Snack Tarde'] || comidas['Snack_tarde'] || '-',
     };
   }
   return normalizado;
@@ -198,7 +198,7 @@ function analizarMenu(menu: Record<string, DiaComidas>) {
 // Función para saber si hoy es sábado o posterior
 function puedeCrearMenuProximaSemana() {
   const today = new Date();
-  return today.getDay() >= 6; // 6=sábado, 0=domingo
+  return today.getDay() >= 6; // 6 = sábado, 0 = domingo
 }
 
 // Función para obtener la fecha del próximo sábado
@@ -208,6 +208,41 @@ function getNextSaturday() {
   const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
   nextSaturday.setDate(today.getDate() + daysUntilSaturday);
   return nextSaturday;
+}
+
+// Función robusta para obtener el lunes de la semana actual
+function getMondayOfCurrentWeek(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+// Función robusta para obtener el lunes de la semana siguiente
+function getMondayOfNextWeek(date = new Date()) {
+  const monday = getMondayOfCurrentWeek(date);
+  monday.setDate(monday.getDate() + 7);
+  return monday;
+}
+
+// Función para decidir para qué semana crear el menú (actual o próxima)
+function getTargetMondayForMenu() {
+  const now = new Date();
+  if (now.getDay() === 0 && now.getHours() >= 22) {
+    // Domingo después de las 22:00, crear para la próxima semana
+    return getMondayOfNextWeek(now);
+  }
+  return getMondayOfCurrentWeek(now);
+}
+
+// Función para decidir el lunes base para mostrar el menú en el dashboard
+function getBaseMondayForDisplay() {
+  const now = new Date();
+  if (now.getDay() === 0 && now.getHours() >= 22) {
+    // Domingo después de las 22:00, mostrar la semana siguiente
+    return getMondayOfNextWeek(now);
+  }
+  return getMondayOfCurrentWeek(now);
 }
 
 export default function Inicio({ session }: { session: Session }) {
@@ -357,6 +392,32 @@ export default function Inicio({ session }: { session: Session }) {
     }
   }, [profileLoaded, profile, navigate, session?.user]);
 
+  // Eliminar automáticamente el menú de la semana pasada a partir de las 22:00 del domingo
+  useEffect(() => {
+    const now = new Date();
+    // Si es domingo después de las 22:00 o lunes/martes/...
+    if ((now.getDay() === 0 && now.getHours() >= 22) || now.getDay() > 0) {
+      // Calcular el lunes de la semana pasada
+      const lastMonday = new Date(now);
+      lastMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7) - 7);
+      lastMonday.setHours(0, 0, 0, 0);
+      const lastWeekStr = lastMonday.toISOString().slice(0, 10);
+
+      // Buscar el menú de la semana pasada
+      const lastWeekPlan = mealPlans.find(plan => {
+        const planWeek = new Date(plan.week);
+        planWeek.setHours(0, 0, 0, 0);
+        return planWeek.toISOString().slice(0, 10) === lastWeekStr;
+      });
+
+      if (lastWeekPlan) {
+        supabase.from('meal_plans').delete().eq('id', lastWeekPlan.id).then(() => {
+          setMealPlans(prev => prev.filter(p => p.id !== lastWeekPlan.id));
+        });
+      }
+    }
+  }, [mealPlans]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate('/login')
@@ -428,18 +489,10 @@ export default function Inicio({ session }: { session: Session }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
-      // Calcular el lunes de la semana actual
-      const today = new Date();
-      const monday = new Date(today);
-      monday.setHours(0, 0, 0, 0);
-      monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+      // Usar la semana correcta según la hora y el día
+      const monday = getTargetMondayForMenu();
       const week = monday.toISOString().slice(0, 10);
-      // Comprobar si ya existe menú para esta semana
-      if (mealPlans.some(plan => {
-        const planWeek = new Date(plan.week);
-        planWeek.setHours(0, 0, 0, 0);
-        return planWeek.toISOString().slice(0, 10) === week;
-      })) {
+      if (mealPlans.some(plan => plan.week.slice(0, 10) === week)) {
         await Swal.fire({
           title: 'Ya tienes un menú para esta semana',
           text: 'Solo puedes tener un menú por semana. Puedes editarlo o eliminarlo si lo deseas.',
@@ -467,8 +520,6 @@ export default function Inicio({ session }: { session: Session }) {
         .select('id, title, week, created_at, meals')
         .single();
       if (error) throw error;
-      
-      // Actualizar el estado con el nuevo plan
       const newPlan = { ...plan, meals: menu };
       setMealPlans(prev => [newPlan, ...prev]);
       setSelectedPlan(newPlan);
@@ -546,7 +597,6 @@ export default function Inicio({ session }: { session: Session }) {
       showToast('success', 'Buscando alternativa...');
       const objetivo = profile?.goal || '';
       const intolerancias = profile?.intolerances || [];
-      
       const alternativa = await generateMenuWithGemini({
         objetivo,
         intolerancias,
@@ -554,26 +604,26 @@ export default function Inicio({ session }: { session: Session }) {
         dia,
         tipo
       });
-
       // Actualiza el menú en el estado
       const nuevoMenu = { ...menuDetail };
       nuevoMenu[dia][tipo] = alternativa;
       setMenuDetail(nuevoMenu);
-
       // Actualiza en la base de datos
       if (selectedPlan) {
         const { error } = await supabase
           .from('meal_plans')
           .update({ meals: nuevoMenu })
           .eq('id', selectedPlan.id);
-
         if (error) throw error;
+        // Sincroniza mealPlans y currentWeekPlan
+        setMealPlans(prev => prev.map(p => p.id === selectedPlan.id ? { ...p, meals: nuevoMenu } : p));
       }
-
       showToast('success', '¡Alternativa sugerida!');
+      return alternativa;
     } catch (err: any) {
       console.error('Error al sugerir alternativa:', err);
       showToast('error', 'No se pudo sugerir alternativa');
+      return platoActual;
     } finally {
       setLoadingAlternative(null);
     }
@@ -581,6 +631,29 @@ export default function Inicio({ session }: { session: Session }) {
 
   // Generar menú para la próxima semana
   const handleCreateNextWeekPlan = async () => {
+    if (!puedeCrearMenuProximaSemana()) {
+      await Swal.fire({
+        title: 'No disponible aún',
+        text: `Podrás crear el menú de la próxima semana a partir del ${format(getNextSaturday(), 'dd/MM/yyyy')}`,
+        icon: 'info',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#22c55e',
+      });
+      return;
+    }
+    // Usar el lunes de la semana siguiente
+    const nextMonday = getMondayOfNextWeek();
+    const week = nextMonday.toISOString().slice(0, 10);
+    if (mealPlans.some(plan => plan.week.slice(0, 10) === week)) {
+      await Swal.fire({
+        title: 'Ya tienes un menú para la próxima semana',
+        text: 'Solo puedes tener un menú por semana. Puedes editarlo o eliminarlo si lo deseas.',
+        icon: 'info',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#22c55e',
+      });
+      return;
+    }
     setCreatingNextWeek(true);
     setNextWeekMsg('Generando menú para la próxima semana...');
     try {
@@ -590,29 +663,6 @@ export default function Inicio({ session }: { session: Session }) {
       }
       const user = session.user;
       if (!user) throw new Error('No user found');
-      // Calcular próximo lunes
-      const today = new Date();
-      const nextMonday = new Date(today);
-      nextMonday.setHours(0, 0, 0, 0);
-      nextMonday.setDate(today.getDate() + ((8 - today.getDay()) % 7 || 7));
-      const week = nextMonday.toISOString().slice(0, 10);
-      // Comprobar si ya existe menú para esa semana
-      if (mealPlans.some(plan => {
-        const planWeek = new Date(plan.week);
-        planWeek.setHours(0, 0, 0, 0);
-        return planWeek.toISOString().slice(0, 10) === week;
-      })) {
-        await Swal.fire({
-          title: 'Ya tienes un menú para la próxima semana',
-          text: 'Solo puedes tener un menú por semana. Puedes editarlo o eliminarlo si lo deseas.',
-          icon: 'info',
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#22c55e',
-        });
-        setCreatingNextWeek(false);
-        setTimeout(() => setNextWeekMsg(''), 3500);
-        return;
-      }
       const objetivo = profile?.goal || '';
       const intolerancias = profile?.intolerances || [];
       const menu = await generateMenuWithGemini({ objetivo, intolerancias });
@@ -645,34 +695,19 @@ export default function Inicio({ session }: { session: Session }) {
     }
   };
 
-  // Obtener el menú de la semana actual
+  // Obtener el menú de la semana actual o de la próxima si ya es sábado o domingo
   const getCurrentWeekMenu = () => {
-    const today = new Date();
-    // Calcular el lunes de esta semana en formato yyyy-MM-dd
-    const monday = new Date(today);
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-    const weekStr = monday.toISOString().slice(0, 10);
-    
-    // Buscar el plan cuyo week sea igual al lunes de esta semana
-    const plan = mealPlans.find(plan => {
-      const planWeek = new Date(plan.week);
-      planWeek.setHours(0, 0, 0, 0);
-      return planWeek.toISOString().slice(0, 10) === weekStr;
-    });
-
+    const baseMonday = getBaseMondayForDisplay();
+    const weekStr = baseMonday.toISOString().slice(0, 10);
+    let plan = mealPlans.find(plan => plan.week.slice(0, 10) === weekStr);
     if (!plan) return null;
-
     // Normalizar el menú para asegurar que tenga todos los días y comidas
     const menuNormalizado = normalizaMenuConSnacks(plan.meals || {});
-    
-    // Filtrar solo los días restantes de la semana
-    const diaHoy = today.getDay() === 0 ? 6 : today.getDay() - 1;
-    const diasRestantes = WEEK_DAYS.slice(diaHoy);
-    const mostrarDias = diasRestantes.length > 0 ? diasRestantes : WEEK_DAYS;
-    
+    // Mostrar siempre todos los días de la semana (lunes a domingo)
+    const mostrarDias = WEEK_DAYS;
     const menuFiltrado: Record<string, DiaComidas> = {};
-    for (const dia of mostrarDias) {
+    for (let i = 0; i < mostrarDias.length; i++) {
+      const dia = mostrarDias[i];
       menuFiltrado[dia] = menuNormalizado[dia] || {
         desayuno: '-',
         comida: '-',
@@ -681,7 +716,6 @@ export default function Inicio({ session }: { session: Session }) {
         'snack tarde': '-',
       };
     }
-
     return { ...plan, meals: menuFiltrado };
   };
   const currentWeekPlan = getCurrentWeekMenu();
@@ -749,7 +783,14 @@ export default function Inicio({ session }: { session: Session }) {
         {!currentWeekPlan && (
           <button
             onClick={handleCreatePlan}
-            disabled={creatingPlan}
+            disabled={creatingPlan || mealPlans.some(plan => {
+              const planWeek = new Date(plan.week);
+              planWeek.setHours(0, 0, 0, 0);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              today.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+              return planWeek.toISOString().slice(0, 10) === today.toISOString().slice(0, 10);
+            })}
             className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
           >
             {creatingPlan ? 'Generando menú...' : 'Crear menú'}
@@ -766,7 +807,7 @@ export default function Inicio({ session }: { session: Session }) {
               ? 'Generando menú de la próxima semana...'
               : puedeCrearMenuProximaSemana()
                 ? `Crear menú para la próxima semana (${format(getNextMonday(), 'dd/MM/yyyy')})`
-                : `Disponible el ${format(getNextSaturday(), 'dd/MM/yyyy')}`}
+                : `Disponible el ${format(getNextSaturday(), 'dd/MM/yyyy')} para hacer la compra`}
           </button>
         )}
         {/* Menú de la semana actual */}
@@ -790,17 +831,57 @@ export default function Inicio({ session }: { session: Session }) {
                     <tr><td colSpan={6} className="text-center text-gray-500">No hay menú para esta semana.</td></tr>
                   ) : (
                     Object.entries(currentWeekPlan ? (currentWeekPlan.meals as Record<string, DiaComidas>) : {}).map(([dia, comidas], idx) => {
+                      const baseMonday = getBaseMondayForDisplay();
+                      const planDate = new Date(baseMonday);
+                      planDate.setDate(baseMonday.getDate() + idx);
+                      const fechaStr = `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${planDate.getDate().toString().padStart(2, '0')}/${(planDate.getMonth() + 1).toString().padStart(2, '0')}/${planDate.getFullYear()}`;
                       const today = new Date();
-                      const diaHoy = today.getDay() === 0 ? 6 : today.getDay() - 1;
-                      const isToday = WEEK_DAYS[diaHoy] === dia;
+                      const isToday = today.toDateString() === planDate.toDateString();
                       return (
                         <tr key={dia} className={isToday ? 'bg-green-100 font-bold' : 'hover:bg-green-50'}>
                           <td className="p-2 border font-semibold capitalize">{dia.charAt(0).toUpperCase() + dia.slice(1)}</td>
                           <td className="p-2 border">{comidas.desayuno || '-'} <button className="ml-2 text-xs text-blue-600 underline" onClick={() => handleSuggestAlternative(dia, 'desayuno', comidas.desayuno)} title="Sugerir alternativa">¿Otra?</button></td>
                           <td className="p-2 border">{comidas.comida || '-'} <button className="ml-2 text-xs text-blue-600 underline" onClick={() => handleSuggestAlternative(dia, 'comida', comidas.comida)} title="Sugerir alternativa">¿Otra?</button></td>
                           <td className="p-2 border">{comidas.cena || '-'} <button className="ml-2 text-xs text-blue-600 underline" onClick={() => handleSuggestAlternative(dia, 'cena', comidas.cena)} title="Sugerir alternativa">¿Otra?</button></td>
-                          <td className="p-2 border">{comidas['snack mañana'] || '-'}</td>
-                          <td className="p-2 border">{comidas['snack tarde'] || '-'}</td>
+                          <td className="p-2 border">
+                            {((comidas['snack mañana'] && comidas['snack mañana'] !== '-')
+                              ? comidas['snack mañana']
+                              : getSnackSaludable(profile?.intolerances || []))}
+                            <button
+                              className="ml-2 text-xs text-blue-600 underline"
+                              onClick={async () => {
+                                const alternativa = await handleSuggestAlternative(dia, 'snack mañana', comidas['snack mañana']);
+                                // Actualiza el menú de la semana en mealPlans y currentWeekPlan
+                                if (currentWeekPlan) {
+                                  const newMeals = { ...currentWeekPlan.meals, [dia]: { ...currentWeekPlan.meals[dia], ['snack mañana']: alternativa } };
+                                  setMealPlans(prev => prev.map(p => p.id === currentWeekPlan.id ? { ...p, meals: newMeals } : p));
+                                  setMenuDetail(newMeals);
+                                }
+                              }}
+                              title="Sugerir alternativa"
+                            >
+                              ¿Otra?
+                            </button>
+                          </td>
+                          <td className="p-2 border">
+                            {((comidas['snack tarde'] && comidas['snack tarde'] !== '-')
+                              ? comidas['snack tarde']
+                              : getSnackSaludable(profile?.intolerances || []))}
+                            <button
+                              className="ml-2 text-xs text-blue-600 underline"
+                              onClick={async () => {
+                                const alternativa = await handleSuggestAlternative(dia, 'snack tarde', comidas['snack tarde']);
+                                if (currentWeekPlan) {
+                                  const newMeals = { ...currentWeekPlan.meals, [dia]: { ...currentWeekPlan.meals[dia], ['snack tarde']: alternativa } };
+                                  setMealPlans(prev => prev.map(p => p.id === currentWeekPlan.id ? { ...p, meals: newMeals } : p));
+                                  setMenuDetail(newMeals);
+                                }
+                              }}
+                              title="Sugerir alternativa"
+                            >
+                              ¿Otra?
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
@@ -871,12 +952,11 @@ export default function Inicio({ session }: { session: Session }) {
                   <thead>
                     <tr className="bg-green-50">
                       <th className="p-2 border font-semibold">Comida</th>
-                      {getDiasAMostrar().map((dia, idx) => {
-                        // Calcular la fecha de cada día
-                        const planDate = selectedPlan ? new Date(selectedPlan.week) : new Date();
-                        planDate.setDate(planDate.getDate() + WEEK_DAYS.indexOf(dia));
+                      {WEEK_DAYS.map((dia, idx) => {
+                        const baseMonday = getBaseMondayForDisplay();
+                        const planDate = new Date(baseMonday);
+                        planDate.setDate(baseMonday.getDate() + idx);
                         const fechaStr = `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${planDate.getDate().toString().padStart(2, '0')}/${(planDate.getMonth() + 1).toString().padStart(2, '0')}/${planDate.getFullYear()}`;
-                        // Resaltar el día actual
                         const today = new Date();
                         const isToday = today.toDateString() === planDate.toDateString();
                         return (
@@ -895,14 +975,14 @@ export default function Inicio({ session }: { session: Session }) {
                           {tipo === 'snack mañana' && '☀️ Snack mañana'}
                           {tipo === 'snack tarde' && '🌆 Snack tarde'}
                         </td>
-                        {getDiasAMostrar().map((dia, idx) => {
-                          const comidas = getMenuHorizontal(menuDetail)[dia];
+                        {WEEK_DAYS.map((dia, idx) => {
+                          const comidas = menuDetail ? getMenuHorizontal(menuDetail)[dia] : {
+                            desayuno: '-', comida: '-', cena: '-', 'snack mañana': '-', 'snack tarde': '-'
+                          };
                           let valor = comidas[tipo] || '-';
-                          // Si es snack y está vacío, rellenar automáticamente
-                          if ((tipo === 'snack mañana' || tipo === 'snack tarde') && (valor === '-' || !valor)) {
+                          if ((tipo === 'snack mañana' || tipo === 'snack tarde') && (!valor || valor === '-')) {
                             valor = getSnackSaludable(profile?.intolerances || []);
                           }
-                          // Calcular la fecha de cada día para resaltar
                           const planDate = selectedPlan ? new Date(selectedPlan.week) : new Date();
                           planDate.setDate(planDate.getDate() + WEEK_DAYS.indexOf(dia));
                           const today = new Date();
@@ -915,17 +995,12 @@ export default function Inicio({ session }: { session: Session }) {
                                 <button
                                   className="ml-2 text-xs text-blue-600 underline"
                                   onClick={async () => {
-                                    const confirm = await Swal.fire({
-                                      title: '¿Sugerir alternativa?',
-                                      text: '¿Quieres que la IA sugiera una alternativa para este plato/snack?',
-                                      icon: 'question',
-                                      showCancelButton: true,
-                                      confirmButtonText: 'Sí, sugerir',
-                                      cancelButtonText: 'Cancelar',
-                                      reverseButtons: true
-                                    });
-                                    if (confirm.isConfirmed) {
-                                      handleSuggestAlternative(dia, tipo as keyof DiaComidas, valor);
+                                    const alternativa = await handleSuggestAlternative(dia, tipo as keyof DiaComidas, valor);
+                                    // Actualiza el menú de la semana en mealPlans y currentWeekPlan
+                                    if (currentWeekPlan) {
+                                      const newMeals = { ...currentWeekPlan.meals, [dia]: { ...currentWeekPlan.meals[dia], [tipo]: alternativa } };
+                                      setMealPlans(prev => prev.map(p => p.id === currentWeekPlan.id ? { ...p, meals: newMeals } : p));
+                                      setMenuDetail(newMeals);
                                     }
                                   }}
                                   title="Sugerir alternativa"
