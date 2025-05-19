@@ -21,7 +21,7 @@ export async function generateMenuWithGemini({
   if (platoActual && dia && tipo) {
     prompt = `Eres un nutricionista experto. Necesito una alternativa para el siguiente plato que contiene ingredientes no aptos para el usuario:\nPlato actual: "${platoActual}"\nDía: ${dia}\nTipo de comida: ${tipo}\nObjetivo del usuario: "${objetivo}"\n${intoleranciasTexto}\n\nPor favor, sugiere una alternativa saludable y deliciosa que:\n1. No contenga ninguno de los ingredientes no aptos\n2. Sea compatible con el objetivo del usuario\n3. Sea fácil de preparar\n4. Sea similar en tipo de comida (por ejemplo, si es un plato principal, sugiere otro plato principal)\n\nDevuelve SOLO el nombre del plato alternativo, sin explicaciones adicionales.`;
   } else {
-    prompt = promptExtra || `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona cuyo objetivo es: "${objetivo}".\n\n${intoleranciasTexto}\n\nRequisitos específicos:\n1. El menú debe ser diferente cada día\n2. Incluir recetas mediterráneas e internacionales\n3. Ser fácil de preparar\n4. Adaptado al objetivo del usuario\n5. No incluir ningún ingrediente no apto\n6. Incluir una buena variedad de proteínas, carbohidratos y grasas saludables\n7. Considerar el desayuno como la comida más importante del día\n8. Incluir snacks saludables entre comidas principales\n\nDevuelve el menú en formato JSON, con los días de la semana como claves (lunes a domingo), y para cada día, desayuno, comida y cena.\nEjemplo de formato:\n{\n  "lunes": { "desayuno": "Avena con frutas", "comida": "Ensalada de pollo", "cena": "Sopa de verduras" },\n  ...\n}\n\nNo incluyas explicaciones, solo el JSON.`;
+    prompt = promptExtra || `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona cuyo objetivo es: "${objetivo}".\n\n${intoleranciasTexto}\n\nRequisitos específicos:\n1. El menú debe ser diferente cada día\n2. Incluir recetas mediterráneas e internacionales\n3. Ser fácil de preparar\n4. Adaptado al objetivo del usuario\n5. No incluir ningún ingrediente no apto\n6. Incluir una buena variedad de proteínas, carbohidratos y grasas saludables\n7. Considerar el desayuno como la comida más importante del día\n8. Incluir snacks saludables entre comidas principales (snack mañana y snack tarde)\n\nDevuelve el menú en formato JSON, con los días de la semana como claves (lunes a domingo), y para cada día, desayuno, comida, cena, snack mañana y snack tarde.\nEjemplo de formato:\n{\n  "lunes": { "Desayuno": "Avena con frutas", "Comida": "Ensalada de pollo", "Cena": "Sopa de verduras", "Snack mañana": "Fruta fresca", "Snack tarde": "Yogur vegetal" },\n  ...\n}\n\nNo incluyas explicaciones, solo el JSON.`;
   }
 
   const res = await fetch("http://localhost:3001/api/generate-menu", {
@@ -32,19 +32,35 @@ export async function generateMenuWithGemini({
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   if (platoActual) return data.text.trim();
+  let menu;
   try {
-    return JSON.parse(data.text);
+    menu = JSON.parse(data.text);
   } catch {
     const match = data.text.match(/\{[\s\S]*\}/);
     if (match) {
       try {
-        return JSON.parse(match[0]);
+        menu = JSON.parse(match[0]);
       } catch {
         throw new Error('No se pudo parsear la respuesta de Gemini');
       }
+    } else {
+      throw new Error('No se encontró un JSON válido en la respuesta');
     }
-    throw new Error('No se encontró un JSON válido en la respuesta');
   }
+  // Validar que ningún plato contiene ingredientes de las intolerancias
+  if (intolerancias.length > 0) {
+    for (const dia of Object.keys(menu)) {
+      for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
+        const plato = menu[dia]?.[tipo]?.toLowerCase() || '';
+        for (const intol of intolerancias) {
+          if (plato.includes(intol.toLowerCase())) {
+            throw new Error(`El plato '${plato}' contiene la intolerancia '${intol}'.`);
+          }
+        }
+      }
+    }
+  }
+  return menu;
 }
 
 // Función de prueba mínima para Gemini
