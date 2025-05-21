@@ -5,6 +5,7 @@ import { getBaseMondayForDisplay } from '../utils/dateUtils';
 import { getSnackSaludable } from '../utils/menuUtils';
 import type { DiaComidas } from '../types/dashboard';
 import Swal from 'sweetalert2';
+import { Link } from 'react-router-dom';
 
 interface MenuTableProps {
   menu: Record<string, DiaComidas>;
@@ -97,7 +98,15 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
                         <span className="text-green-600 animate-pulse">Buscando...</span>
                       ) : (
                         <>
-                          {valor === '-' || valor === '' ? '' : valor}
+                          {valor === '-' || valor === '' ? '' : (
+                            <Link
+                              to={`/receta/${valor.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9\-]/g, '')}`}
+                              className="text-green-700 hover:underline font-semibold"
+                              title={`Ver receta de ${valor}`}
+                            >
+                              {valor}
+                            </Link>
+                          )}
                           <button
                             className="ml-2 text-xs text-blue-600 underline"
                             onClick={() => handleSuggestAlternative(dia, tipo, valor)}

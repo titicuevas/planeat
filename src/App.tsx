@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import ProfileSetup from './pages/ProfileSetup'
 import Cesta from './pages/Cesta'
 import AuthCallback from './pages/AuthCallback'
+import Receta from './pages/Receta'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -83,12 +84,13 @@ function App() {
           <Route path="perfil" element={session ? <ProfileSetup /> : <Navigate to="/login" replace />} />
           <Route path="inicio" element={session ? <Dashboard session={session} setGenerandoCesta={setGenerandoCesta} /> : <Navigate to="/login" replace />} />
           <Route path="cesta" element={<Cesta />} />
+          <Route path="receta/:recetaId" element={<Receta />} />
           <Route path="auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
       <footer className="w-full bg-white shadow-inner py-3 flex justify-center items-center">
-        {location.pathname !== '/cesta' && (
+        {session && location.pathname === '/inicio' && (
           <Link to={generandoCesta ? "#" : "/cesta"} className={`text-green-700 font-semibold text-lg flex items-center gap-2 ${generandoCesta ? 'opacity-50 pointer-events-none' : 'hover:underline'}`}
             tabIndex={generandoCesta ? -1 : 0}
             aria-disabled={generandoCesta}

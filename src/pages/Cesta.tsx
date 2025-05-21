@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import ReactConfetti from 'react-confetti';
 
@@ -304,7 +304,9 @@ export default function Cesta() {
               <tbody className="divide-y divide-green-100">
                 {groupedIngredients.map((item, idx) => (
                   <tr key={item.nombre + idx}>
-                    <td className={"px-4 py-2 " + (item.checked ? 'line-through text-gray-500' : '')}>{item.nombre}</td>
+                    <td className={"px-4 py-2 " + (item.checked ? 'line-through text-gray-500' : '')}>
+                      {item.nombre}
+                    </td>
                     <td className={"px-4 py-2 " + (item.checked ? 'line-through text-gray-500' : '')}>{formatCantidad(item.cantidad, item.otros, item.nombre)}</td>
                     <td className="px-4 py-2">
                       <input
