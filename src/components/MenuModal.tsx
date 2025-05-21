@@ -75,6 +75,16 @@ export function MenuModal({
   const analisis = analizarMenu(menuLocal);
   const totalMacros = analisis.carbohidratos + analisis.proteinas + analisis.grasas;
 
+  // Calcular los días a mostrar según el estado verSemanaCompleta
+  const baseMonday = getBaseMondayForDisplay();
+  const today = new Date();
+  let diasAMostrar = WEEK_DAYS;
+  if (!verSemanaCompleta) {
+    // Calcular el índice del día de hoy respecto al lunes
+    const dayIndex = Math.max(0, today.getDay() === 0 ? 6 : today.getDay() - 1); // 0=lunes, 6=domingo
+    diasAMostrar = WEEK_DAYS.slice(dayIndex);
+  }
+
   return (
     <Dialog open={isOpen} onClose={onClose} className="fixed z-50 inset-0 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4">
@@ -120,12 +130,10 @@ export function MenuModal({
               <thead>
                 <tr className="bg-green-50">
                   <th className="p-2 border font-semibold">Comida</th>
-                  {WEEK_DAYS.map((dia, idx) => {
-                    const baseMonday = getBaseMondayForDisplay();
+                  {diasAMostrar.map((dia, idx) => {
                     const planDate = new Date(baseMonday);
-                    planDate.setDate(baseMonday.getDate() + idx);
+                    planDate.setDate(baseMonday.getDate() + WEEK_DAYS.indexOf(dia));
                     const fechaStr = `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${planDate.getDate().toString().padStart(2, '0')}/${(planDate.getMonth() + 1).toString().padStart(2, '0')}/${planDate.getFullYear()}`;
-                    const today = new Date();
                     const isToday = today.toDateString() === planDate.toDateString();
                     return (
                       <th key={dia} className={`p-2 border font-semibold capitalize${isToday ? ' bg-green-300 text-green-900' : ''}`}>
@@ -145,7 +153,7 @@ export function MenuModal({
                       {tipo === 'Snack mañana' && '☀️ Snack mañana'}
                       {tipo === 'Snack tarde' && '🌆 Snack tarde'}
                     </td>
-                    {WEEK_DAYS.map((dia) => {
+                    {diasAMostrar.map((dia) => {
                       const comidas = menuLocal[dia] || {
                         Desayuno: '-',
                         Comida: '-',

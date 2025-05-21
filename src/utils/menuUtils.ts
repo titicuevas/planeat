@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import type { DiaComidas } from '../types/dashboard';
 import { WEEK_DAYS, SNACKS_SALUDABLES } from '../types/dashboard';
 
-const MENU_EJEMPLO: Record<string, DiaComidas> = {
+export const MENU_EJEMPLO: Record<string, DiaComidas> = {
   lunes: {
     Desayuno: 'Tostadas integrales con tomate y aceite de oliva',
     Comida: 'Pollo a la plancha con arroz y verduras',

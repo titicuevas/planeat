@@ -29,6 +29,7 @@ export default function ProfileSetup() {
   const [nombre, setNombre] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showNoUserMsg, setShowNoUserMsg] = useState(false);
 
   const handleIntoleranciaChange = (intol: string) => {
     if (intol === 'Ninguna') {
@@ -46,6 +47,7 @@ export default function ProfileSetup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setShowNoUserMsg(false);
     // Validación estricta
     if (!nombre.trim()) {
       setError('Por favor, introduce tu nombre.');
@@ -62,8 +64,8 @@ export default function ProfileSetup() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError('No se encontró el usuario');
+      if (!user || !user.email_confirmed_at) {
+        setShowNoUserMsg(true);
         setLoading(false);
         return;
       }
@@ -163,6 +165,11 @@ export default function ProfileSetup() {
             ))}
           </div>
         </div>
+        {showNoUserMsg && (
+          <div className="text-red-600 text-sm text-center p-2 bg-red-50 rounded">
+            Debes estar autenticado y haber confirmado tu correo electrónico para completar el perfil. Por favor, revisa tu email y confirma tu cuenta antes de continuar.
+          </div>
+        )}
         {error && (
           <div className="text-red-600 text-sm text-center p-2 bg-red-50 rounded">
             {error}

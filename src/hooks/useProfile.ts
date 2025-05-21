@@ -25,29 +25,14 @@ export function useProfile(session: Session | null) {
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code === 'PGRST116') {
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert([{
-              id: user.id,
-              name: user.user_metadata?.name || '',
-              email: user.email
-            }]);
-          if (insertError) throw insertError;
-          const { data: newProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-          profileData = newProfile;
-        } else if (error) {
+        if (error && error.code !== 'PGRST116') {
           throw error;
         }
 
         if (!profileData) {
-          setProfile({ id: user.id, name: '', goal: null, intolerances: null });
+          setProfile(null);
           setProfileLoaded(true);
           setLoading(false);
           navigate('/perfil', { replace: true });

@@ -57,10 +57,17 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
         return;
       }
 
-      let menu = await generateMenuWithGemini({
-        objetivo: profile.goal || '',
-        intolerancias: profile.intolerances || []
-      });
+      let menu;
+      try {
+        menu = await generateMenuWithGemini({
+          objetivo: profile.goal || '',
+          intolerancias: profile.intolerances || []
+        });
+      } catch (err) {
+        console.error('Error real de Gemini:', err);
+        // Si Gemini falla, lanzamos el error para que no se use el menú de ejemplo
+        throw new Error('No se pudo generar el menú personalizado con Gemini. Por favor, inténtalo de nuevo.');
+      }
       menu = normalizaMenuConSnacks(menu) as unknown as Record<string, Record<string, string>>;
 
       const planTitle = title || `Menú semana ${week}`;
@@ -79,9 +86,12 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
       
       setMealPlans(prev => [{ ...plan, meals: menu }, ...prev]);
       setPlanMsg('');
+      // Guardar los ingredientes en shopping_list
+      await saveIngredientsToShoppingList(plan.id, menu, week);
       return plan;
     } catch (err: any) {
-      setPlanMsg('Error creando el plan');
+      setPlanMsg('Error creando el plan: ' + (err.message || JSON.stringify(err)));
+      console.error('Error creando el plan:', err);
       throw err;
     } finally {
       setCreatingPlan(false);
@@ -107,10 +117,17 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
         return;
       }
 
-      let menu = await generateMenuWithGemini({
-        objetivo: profile.goal || '',
-        intolerancias: profile.intolerances || []
-      });
+      let menu;
+      try {
+        menu = await generateMenuWithGemini({
+          objetivo: profile.goal || '',
+          intolerancias: profile.intolerances || []
+        });
+      } catch (err) {
+        console.error('Error real de Gemini:', err);
+        // Si Gemini falla, lanzamos el error para que no se use el menú de ejemplo
+        throw new Error('No se pudo generar el menú personalizado con Gemini. Por favor, inténtalo de nuevo.');
+      }
       menu = normalizaMenuConSnacks(menu) as unknown as Record<string, Record<string, string>>;
 
       const title = `Menú semana ${week}`;
@@ -189,4 +206,53 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
     deletePlan,
     updatePlan
   };
+}
+
+// Nueva función para guardar ingredientes en shopping_list
+async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<string, Record<string, string>>, week: string) {
+  console.log('Entrando en saveIngredientsToShoppingList', mealPlanId, menu, week);
+  const { getIngredientesPlatoGemini } = await import('../api/gemini');
+  const { WEEK_DAYS } = await import('../types/dashboard');
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const ingredients = [];
+  for (const dia of WEEK_DAYS) {
+    for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
+      const plato = menu[dia]?.[tipo];
+      if (plato) {
+        try {
+          const ingredientes = await getIngredientesPlatoGemini(plato);
+          for (const ingrediente of ingredientes) {
+            let nombre = '', cantidad = '';
+            try {
+              const obj = typeof ingrediente === 'string' ? JSON.parse(ingrediente) : ingrediente;
+              nombre = obj.nombre || '';
+              cantidad = obj.cantidad || '';
+            } catch {
+              nombre = typeof ingrediente === 'string' ? ingrediente : '';
+              cantidad = '';
+            }
+            ingredients.push({
+              user_id: user.id,
+              meal_plan_id: mealPlanId,
+              week,
+              day: dia,
+              meal_type: tipo,
+              dish: plato,
+              ingredient: typeof ingrediente === 'string' ? ingrediente : '',
+              nombre,
+              cantidad,
+              checked: false
+            });
+          }
+        } catch (err) {
+          console.error(`Error obteniendo ingredientes para ${plato}:`, err);
+        }
+      }
+    }
+  }
+  if (ingredients.length > 0) {
+    const { error } = await supabase.from('shopping_list').insert(ingredients);
+    if (error) console.error('Error guardando ingredientes:', error);
+  }
 } 

@@ -47,6 +47,8 @@ const Login = () => {
         password: formData.password
       });
 
+      console.log('Resultado login:', { data, error });
+
       if (error) throw error;
 
       if (data.user) {
@@ -55,32 +57,8 @@ const Login = () => {
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single();
-
-        if (!profile) {
-          // Crear perfil si no existe
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert([
-              {
-                id: data.user.id,
-                name: data.user.user_metadata?.name || '',
-                email: data.user.email
-              }
-            ]);
-          if (insertError) {
-            setError('Error creando el perfil de usuario: ' + insertError.message);
-            setLoading(false);
-            return;
-          }
-          // Volver a recuperar el perfil recién creado
-          const { data: newProfile, error: newProfileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-          profile = newProfile;
-        }
+          .maybeSingle();
+        console.log('Perfil recuperado:', { profile, profileError });
         // Si NO está marcado 'Recuérdame', mueve la sesión a sessionStorage
         if (!recuerdame) {
           const key = Object.keys(localStorage).find(k => k.includes('sb-') && k.includes('-auth-token'));
@@ -103,8 +81,11 @@ const Login = () => {
         } else {
           navigate('/inicio');
         }
+      } else {
+        setError('No se pudo obtener el usuario tras el login.');
       }
     } catch (error) {
+      console.error('Error en login:', error);
       setError(error instanceof Error ? error.message : 'Error al iniciar sesión');
     } finally {
       setLoading(false);

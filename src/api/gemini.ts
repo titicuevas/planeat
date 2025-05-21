@@ -53,7 +53,12 @@ export async function generateMenuWithGemini({
       for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
         const plato = menu[dia]?.[tipo]?.toLowerCase() || '';
         for (const intol of intolerancias) {
-          if (plato.includes(intol.toLowerCase())) {
+          const intolLower = intol.toLowerCase();
+          const regexSin = new RegExp(`sin[\\w\\s,]*${intolLower}`, 'i');
+          if (
+            plato.includes(intolLower) &&
+            !regexSin.test(plato)
+          ) {
             throw new Error(`El plato '${plato}' contiene la intolerancia '${intol}'.`);
           }
         }
@@ -80,5 +85,36 @@ export async function testGeminiAPI() {
     console.log('Respuesta de Gemini (test):', data.text);
   } catch (e) {
     console.error('Error en la petición de prueba a Gemini:', e);
+  }
+}
+
+export async function getIngredientesPlatoGemini(nombrePlato: string): Promise<{nombre: string, cantidad: string}[]> {
+  const prompt = `Eres un nutricionista experto. Dame la lista de ingredientes necesarios para preparar el siguiente plato: "${nombrePlato}". Devuelve SOLO la lista de ingredientes en formato JSON como un array de objetos, cada uno con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Arroz", "cantidad": "100g"}, ...]). No incluyas explicaciones, solo el array JSON.`;
+  const res = await fetch("http://localhost:3001/api/generate-menu", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  console.log('Respuesta cruda de Gemini para ingredientes:', data.text);
+  try {
+    let ingredientes;
+    // Si la respuesta viene en bloque markdown, extraer el array
+    const matchJsonBlock = data.text.match(/```json[\s\n]*([\s\S]*?)```/);
+    if (matchJsonBlock) {
+      ingredientes = JSON.parse(matchJsonBlock[1]);
+    } else {
+      ingredientes = JSON.parse(data.text);
+    }
+    if (Array.isArray(ingredientes)) return ingredientes;
+    // Si la respuesta no es un array, intentar extraer el array de un texto
+    const match = data.text.match(/\[[^\]]*\]/);
+    if (match) {
+      return JSON.parse(match[0]);
+    }
+    throw new Error('No se pudo extraer un array de ingredientes de la respuesta de Gemini');
+  } catch {
+    throw new Error('No se pudo parsear la respuesta de Gemini para ingredientes');
   }
 } 

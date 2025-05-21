@@ -25,7 +25,7 @@ interface Profile {
   intolerances?: string[] | null
 }
 
-export default function Dashboard({ session }: { session: Session }) {
+export default function Dashboard({ session, setGenerandoCesta }: { session: Session, setGenerandoCesta?: (v: boolean) => void }) {
   const navigate = useNavigate()
   const planTitleRef = useRef<HTMLInputElement>(null)
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null)
@@ -59,6 +59,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      setGenerandoCesta && setGenerandoCesta(true);
       const plan = await createPlan(planTitleRef.current?.value)
       if (plan) {
         setSelectedPlan(plan)
@@ -68,6 +69,8 @@ export default function Dashboard({ session }: { session: Session }) {
       }
     } catch (err: any) {
       showToast('error', 'Error creando el plan')
+    } finally {
+      setGenerandoCesta && setGenerandoCesta(false);
     }
   }
 
@@ -84,6 +87,7 @@ export default function Dashboard({ session }: { session: Session }) {
     }
 
     try {
+      setGenerandoCesta && setGenerandoCesta(true);
       const plan = await createNextWeekPlan()
       if (plan) {
         setSelectedPlan(plan)
@@ -93,6 +97,8 @@ export default function Dashboard({ session }: { session: Session }) {
       }
     } catch (err: any) {
       showToast('error', 'Error creando el menú de la próxima semana')
+    } finally {
+      setGenerandoCesta && setGenerandoCesta(false);
     }
   }
 
