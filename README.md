@@ -25,6 +25,7 @@ Planeat es una aplicación web moderna diseñada para ayudarte a planificar tus 
 - React
 - TypeScript
 - Vite
+- Node
 - Tailwind CSS
 - Supabase
 - SweetAlert2
@@ -64,6 +65,19 @@ src/
 └── config/         # Configuración de Supabase y otros servicios
 public/
 └── logo/Logo.png   # Logo y favicon de Planeat
+```
+
+## 🔧 Backend y API
+
+El proyecto incluye un servidor Node.js (`geminiServer.js`) que actúa como backend para la integración con la API de Gemini. Este servidor proporciona dos endpoints:
+
+- `/api/generate-menu`: Genera un menú semanal basado en un prompt enviado.
+- `/api/receta-detalle`: Obtiene la receta detallada de un plato específico.
+
+Para ejecutar el servidor, asegúrate de tener configurada la variable de entorno `GEMINI_API_KEY` y ejecuta:
+
+```bash
+node geminiServer.js
 ```
 
 ## 🆕 Novedades recientes
