@@ -5,7 +5,8 @@ import type { MealPlan, Profile } from '../types/dashboard';
 import { getTargetMondayForMenu, getMondayOfNextWeek } from '../utils/dateUtils';
 import { format } from 'date-fns';
 import Swal from 'sweetalert2';
-import { normalizaMenuConSnacks } from '../utils/menuUtils';
+import { normalizaMenuConSnacks, getMenuHorizontal, MENU_EJEMPLO } from '../utils/menuUtils';
+import { useApp } from '../context/AppContext';
 
 export function useMealPlans(userId: string | undefined, profile: Profile | null) {
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
@@ -14,33 +15,35 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
   const [creatingNextWeek, setCreatingNextWeek] = useState(false);
   const [planMsg, setPlanMsg] = useState('');
   const [nextWeekMsg, setNextWeekMsg] = useState('');
+  const { setIsLoading } = useApp();
 
   useEffect(() => {
-    async function getMealPlans() {
-      if (!userId) return;
-      setLoading(true);
-      try {
-        const { data: mealPlansData, error } = await supabase
-          .from('meal_plans')
-          .select('*')
-          .eq('user_id', userId)
-          .order('week', { ascending: false });
-
-        if (error) throw error;
-        setMealPlans(mealPlansData || []);
-      } catch (err: any) {
-        console.error('Error cargando planes:', err);
-      } finally {
-        setLoading(false);
-      }
+    if (userId) {
+      fetchMealPlans();
     }
-
-    getMealPlans();
   }, [userId]);
+
+  const fetchMealPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('meal_plans')
+        .select('*')
+        .eq('user_id', userId)
+        .order('week', { ascending: false });
+
+      if (error) throw error;
+      setMealPlans(data || []);
+    } catch (error) {
+      console.error('Error fetching meal plans:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const createPlan = async (title?: string) => {
     if (!userId || !profile) return;
     setCreatingPlan(true);
+    setIsLoading(true);
     setPlanMsg('Generando tu menú semanal personalizado...');
     try {
       const monday = getTargetMondayForMenu();
@@ -57,18 +60,35 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
         return;
       }
 
+      // Antes de crear, elimina el menú de la semana actual si existe (por si el usuario ha editado el perfil)
+      await supabase.from('meal_plans').delete().eq('user_id', userId).eq('week', week);
+
       let menu;
       try {
-        menu = await generateMenuWithGemini({
+        // Calcular días restantes de la semana
+        const now = new Date();
+        const diaSemana = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=lunes, 6=domingo
+        const WEEK_DAYS = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
+        let diasRestantes: string[] = [];
+        if (diaSemana > 0) {
+          diasRestantes = WEEK_DAYS.slice(diaSemana);
+        } else {
+          diasRestantes = WEEK_DAYS;
+        }
+        let menuRaw = await generateMenuWithGemini({
           objetivo: profile.goal || '',
-          intolerancias: profile.intolerances || []
+          intolerancias: profile.intolerances || [],
+          diasRestantes
         });
+        // Normaliza el menú recibido para asegurar formato correcto y tipado
+        menu = normalizaMenuConSnacks(getMenuHorizontal(menuRaw, profile.intolerances || []), profile.intolerances || []);
+        console.log('Menú generado y normalizado:', menu);
       } catch (err) {
         console.error('Error real de Gemini:', err);
-        // Si Gemini falla, lanzamos el error para que no se use el menú de ejemplo
-        throw new Error('No se pudo generar el menú personalizado con Gemini. Por favor, inténtalo de nuevo.');
+        // Si Gemini falla, usa menú de ejemplo
+        menu = normalizaMenuConSnacks(getMenuHorizontal(MENU_EJEMPLO, profile.intolerances || []), profile.intolerances || []);
+        console.log('Usando menú de ejemplo:', menu);
       }
-      menu = normalizaMenuConSnacks(menu) as unknown as Record<string, Record<string, string>>;
 
       const planTitle = title || `Menú semana ${week}`;
       const { data: plan, error } = await supabase
@@ -95,12 +115,14 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
       throw err;
     } finally {
       setCreatingPlan(false);
+      setIsLoading(false);
     }
   };
 
   const createNextWeekPlan = async () => {
     if (!userId || !profile) return;
     setCreatingNextWeek(true);
+    setIsLoading(true);
     setNextWeekMsg('Generando menú para la próxima semana...');
     try {
       const nextMonday = getMondayOfNextWeek();
@@ -123,12 +145,15 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
           objetivo: profile.goal || '',
           intolerancias: profile.intolerances || []
         });
+        // Normaliza el menú recibido para asegurar formato correcto
+        menu = normalizaMenuConSnacks(getMenuHorizontal(menu, profile.intolerances || []), profile.intolerances || []);
+        console.log('Menú generado y normalizado:', menu);
       } catch (err) {
         console.error('Error real de Gemini:', err);
-        // Si Gemini falla, lanzamos el error para que no se use el menú de ejemplo
-        throw new Error('No se pudo generar el menú personalizado con Gemini. Por favor, inténtalo de nuevo.');
+        // Si Gemini falla, usa menú de ejemplo
+        menu = normalizaMenuConSnacks(getMenuHorizontal(MENU_EJEMPLO, profile.intolerances || []), profile.intolerances || []);
+        console.log('Usando menú de ejemplo:', menu);
       }
-      menu = normalizaMenuConSnacks(menu) as unknown as Record<string, Record<string, string>>;
 
       const title = `Menú semana ${week}`;
       const { data: plan, error } = await supabase
@@ -152,6 +177,7 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
       throw err;
     } finally {
       setCreatingNextWeek(false);
+      setIsLoading(false);
       setTimeout(() => setNextWeekMsg(''), 3500);
     }
   };

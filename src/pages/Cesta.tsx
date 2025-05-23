@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import ReactConfetti from 'react-confetti';
+import Navbar from '../components/Navbar';
 
 export default function Cesta() {
   const navigate = useNavigate();
@@ -112,6 +113,10 @@ export default function Cesta() {
     loadIngredients();
   }, []);
 
+  useEffect(() => {
+    document.title = 'Cesta de la compra - Planeat';
+  }, []);
+
   // Agrupar ingredientes por nombre y sumar cantidades si es posible
   const groupedIngredients = React.useMemo(() => {
     const map = new Map<string, { cantidades: Record<string, number>, otros: string[], checked: {id: string, checked: boolean}[] }>();
@@ -203,6 +208,7 @@ export default function Cesta() {
     let otrosTextos: string[] = [];
     // Sumar cantidades útiles
     const partes = (cantidad ? cantidad.split(' + ') : []).concat(otros || []);
+    const unidadesSumadas: Record<string, number> = {};
     partes.forEach(parte => {
       const match = parte.match(/([\d,.]+)\s*([\wáéíóúüñ]+)/i);
       if (match) {
@@ -222,7 +228,8 @@ export default function Cesta() {
             totalG += valor * CONVERSION_UNIDADES[unidad as keyof typeof CONVERSION_UNIDADES];
           }
         } else {
-          otrosTextos.push(parte);
+          // Agrupar por unidad si es una unidad no estándar
+          unidadesSumadas[unidad] = (unidadesSumadas[unidad] || 0) + valor;
         }
       } else if (/^\d+$/.test(parte.trim())) {
         totalUnidades += parseInt(parte.trim());
@@ -234,6 +241,10 @@ export default function Cesta() {
     if (totalG > 0) resultado.push(`${totalG % 1 === 0 ? totalG : totalG.toFixed(2)} g`);
     if (totalMl > 0) resultado.push(`${totalMl % 1 === 0 ? totalMl : totalMl.toFixed(2)} ml`);
     if (totalUnidades > 0) resultado.push(`${totalUnidades} unidades`);
+    // Añadir otras unidades sumadas
+    for (const [unidad, valor] of Object.entries(unidadesSumadas)) {
+      resultado.push(`${valor % 1 === 0 ? valor : valor.toFixed(2)} ${unidad}`);
+    }
     if (otrosTextos.length > 0) {
       // Buscar sugerencia orientativa por nombre de ingrediente
       let sugerencia = '';
@@ -256,84 +267,113 @@ export default function Cesta() {
     }
   }, [loading, groupedIngredients]);
 
+  // Función para clasificar ingredientes por tipo (simplificada)
+  function clasificarIngrediente(nombre: string) {
+    const lower = nombre.toLowerCase();
+    if (lower.match(/(lechuga|espinaca|acelga|col|repollo|rúcula|berro|canónigo|brocoli|coliflor|zanahoria|pepino|calabacín|berenjena|pimiento|apio|cebolla|ajo|puerro|alcachofa|judía|habas|guisante|espárrago|seta|champiñón|tomate|patata|batata|boniato|remolacha|rábano|nabo|calabaza|endibia|escarola|hinojo|maíz|mazorca|verdura|vegetal)/)) return 'Verduras';
+    if (lower.match(/(manzana|pera|plátano|banana|naranja|mandarina|limón|lima|pomelo|uva|melón|sandía|kiwi|fresa|frambuesa|arándano|cereza|ciruela|albaricoque|melocotón|mango|piña|papaya|granada|higo|dátil|fruta)/)) return 'Frutas';
+    if (lower.match(/(pollo|pavo|ternera|cerdo|cordero|conejo|carne|jamón|lomo|embutido|huevo|huevos|atún|salmón|pescado|merluza|bacalao|gamba|marisco|langostino|anchoa|sardina|caballa|proteína|tofu|seitán|tempeh|soja|legumbre|lenteja|garbanzo|alubia|judía|frijol|proteína)/)) return 'Proteínas';
+    if (lower.match(/(leche|yogur|queso|lácteo|nata|mantequilla|crema|kefir|lactosa)/)) return 'Lácteos';
+    if (lower.match(/(pan|arroz|pasta|espagueti|macarrón|fideo|cereal|avena|trigo|maíz|centeno|quinoa|mijo|amaranto|cuscús|bulgur|cereal|galleta|bizcocho|tostada|cereal)/)) return 'Cereales';
+    if (lower.match(/(aceite|sal|azúcar|vinagre|especia|hierba|condimento|salsa|caldo|agua|bebida|vino|cerveza|refresco|miel|semilla|fruto seco|almendra|nuez|avellana|pistacho|cacahuete|anacardo|semilla|pipa|chía|lino|sésamo|girasol|calabaza|otros)/)) return 'Otros';
+    return 'Otros';
+  }
+
+  // Agrupar ingredientes por tipo
+  const ingredientesPorTipo = React.useMemo(() => {
+    const grupos: Record<string, typeof groupedIngredients> = {};
+    groupedIngredients.forEach(item => {
+      const tipo = clasificarIngrediente(item.nombre);
+      if (!grupos[tipo]) grupos[tipo] = [];
+      grupos[tipo].push(item);
+    });
+    return grupos;
+  }, [groupedIngredients]);
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 relative">
-      {renderLoadingOverlay()}
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow p-6 mb-8 relative">
+    <div className="min-h-screen bg-gray-50 dark:bg-secondary-900 flex flex-col items-center py-0 relative transition-colors duration-300">
+      <Navbar />
+      <div className="w-full max-w-2xl bg-white dark:bg-secondary-800 rounded-2xl shadow p-6 mb-8 relative mt-8">
         <button
           onClick={() => navigate(-1)}
-          className="absolute left-4 top-4 bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 transition-colors text-sm font-semibold"
+          className="absolute left-4 top-4 bg-green-100 dark:bg-secondary-700 text-green-700 dark:text-green-300 px-3 py-1 rounded hover:bg-green-200 dark:hover:bg-secondary-600 transition-colors text-sm font-semibold"
           disabled={loadingStep !== 'done'}
         >
           ← Volver
         </button>
-        <h1 className="text-3xl font-bold text-green-700 mb-4 text-center">🛒 Cesta de la compra</h1>
-        <p className="mb-6 text-gray-700 text-center">
+        <h1 className="text-3xl font-bold text-green-700 dark:text-green-400 mb-4 text-center flex items-center gap-2 justify-center">
+          <span role="img" aria-label="carrito">🛒</span> Cesta de la compra
+        </h1>
+        <p className="mb-6 text-secondary-700 dark:text-secondary-200 text-center">
           Aquí verás la lista de ingredientes necesarios para preparar todas las comidas de tu menú semanal. Marca los ingredientes que ya tienes para organizar mejor tu compra.
         </p>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center text-green-800 mb-4">
+        <div className="bg-green-50 dark:bg-secondary-900 border border-green-200 dark:border-secondary-700 rounded-lg p-4 text-center text-green-800 dark:text-green-200 mb-4">
           Próximamente: checklist de ingredientes, descarga en PDF y envío por email.
         </div>
         {/* Botón para marcar toda la lista */}
         {groupedIngredients.length > 0 && (
-          <button
-            className="mb-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold transition-colors"
-            onClick={async () => {
-              const allIds = groupedIngredients.flatMap(item => item.ids);
-              await handleToggleGroup(allIds, true);
-            }}
-            disabled={loadingStep !== 'done' || groupedIngredients.every(item => item.checked)}
-          >
-            Lista de la compra completa
-          </button>
-        )}
-        {loading ? (
-          <div className="text-center">Cargando ingredientes...</div>
-        ) : groupedIngredients.length === 0 ? (
-          <div className="text-center text-gray-500">No hay ingredientes en la lista.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-green-200">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 text-left text-sm font-semibold text-green-700">Ingrediente</th>
-                  <th className="px-4 py-2 text-left text-sm font-semibold text-green-700">Cantidad</th>
-                  <th className="px-4 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-green-100">
-                {groupedIngredients.map((item, idx) => (
-                  <tr key={item.nombre + idx}>
-                    <td className={"px-4 py-2 " + (item.checked ? 'line-through text-gray-500' : '')}>
-                      {item.nombre}
-                    </td>
-                    <td className={"px-4 py-2 " + (item.checked ? 'line-through text-gray-500' : '')}>{formatCantidad(item.cantidad, item.otros, item.nombre)}</td>
-                    <td className="px-4 py-2">
-                      <input
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={e => handleToggleGroup(item.ids, e.target.checked)}
-                        className="h-5 w-5 text-green-600"
-                        disabled={loadingStep !== 'done'}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex justify-center w-full mb-4">
+            <button
+              className="bg-green-600 dark:bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700 dark:hover:bg-green-600 font-semibold transition-colors w-full sm:w-auto"
+              onClick={async () => {
+                const allIds = groupedIngredients.flatMap(item => item.ids);
+                await handleToggleGroup(allIds, true);
+              }}
+              disabled={loadingStep !== 'done' || groupedIngredients.every(item => item.checked)}
+            >
+              Lista de la compra completa
+            </button>
           </div>
         )}
+        {/* Ingredientes agrupados por tipo */}
+        <div className="overflow-x-auto">
+          <div className="divide-y divide-green-200 dark:divide-secondary-700 mt-6">
+            {Object.entries(ingredientesPorTipo).map(([tipo, items]) => (
+              <div key={tipo} className="py-4">
+                <h2 className="text-xl font-bold text-green-700 dark:text-green-400 mb-2 border-b border-green-200 dark:border-secondary-700 pb-1">
+                  {tipo}
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm mb-2 min-w-[350px]">
+                    <thead>
+                      <tr>
+                        <th className="text-left text-green-700 dark:text-green-400 pb-2 w-2/3 min-w-[180px]">Ingrediente</th>
+                        <th className="text-right text-green-700 dark:text-green-400 pb-2 w-1/3 min-w-[80px]">Cantidad</th>
+                        <th className="w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map(item => (
+                        <tr key={item.nombre} className={item.checked ? 'opacity-60' : ''}>
+                          <td className={"py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left " + (item.checked ? 'line-through' : '')}>{item.nombre}</td>
+                          <td className={"py-1 text-secondary-700 dark:text-secondary-300 text-right " + (item.checked ? 'line-through' : '')}>{formatCantidad(item.cantidad, item.otros, item.nombre)}</td>
+                          <td className="text-center">
+                            <input
+                              type="checkbox"
+                              checked={item.checked}
+                              onChange={() => handleToggleGroup(item.ids, !item.checked)}
+                              className="accent-green-600 dark:accent-green-500 w-5 h-5 rounded border-gray-300 dark:border-secondary-600 focus:ring-green-500 transition-all"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       {showConfetti && <ReactConfetti width={window.innerWidth} height={window.innerHeight} numberOfPieces={250} recycle={false} />}
       {showCongrats && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center border-2 border-green-400">
-            <span className="text-2xl font-bold text-green-700 mb-2">¡Compra completada!</span>
-            <span className="text-lg text-green-600">Disfruta de tus menús 🎉</span>
+          <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-lg p-8 flex flex-col items-center border-2 border-green-400 dark:border-green-600">
+            <span className="text-2xl font-bold text-green-700 dark:text-green-400 mb-2">¡Compra completada!</span>
+            <span className="text-lg text-green-600 dark:text-green-300">Disfruta de tus menús 🎉</span>
           </div>
         </div>
       )}
-      {/* Aquí podrías añadir un bloque para mostrar recetas de la semana si tienes los datos */}
     </div>
   );
 } 

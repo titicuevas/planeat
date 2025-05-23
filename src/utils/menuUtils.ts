@@ -99,13 +99,15 @@ export function normalizaMenuConSnacks(
 export function getMenuHorizontal(menu: Record<string, Partial<DiaComidas>>, intolerancias: string[] = []): Record<string, DiaComidas> {
   const normalizado: Record<string, DiaComidas> = {};
   for (const dia of WEEK_DAYS) {
-    const comidas = menu[dia] || {};
+    const keyLower = dia.toLowerCase();
+    const keyUpper = dia.charAt(0).toUpperCase() + dia.slice(1).toLowerCase();
+    const comidas = menu[dia] || menu[keyLower] || menu[keyUpper] || {};
     normalizado[dia] = {
-      Desayuno: comidas.Desayuno || 'Por definir',
-      Comida: comidas.Comida || 'Por definir',
-      Cena: comidas.Cena || 'Por definir',
-      'Snack mañana': comidas['Snack mañana'] || getSnackSaludable(intolerancias),
-      'Snack tarde': comidas['Snack tarde'] || getSnackSaludable(intolerancias),
+      Desayuno: comidas.Desayuno ?? '',
+      Comida: comidas.Comida ?? '',
+      Cena: comidas.Cena ?? '',
+      'Snack mañana': comidas['Snack mañana'] ?? '',
+      'Snack tarde': comidas['Snack tarde'] ?? '',
     };
   }
   return normalizado;

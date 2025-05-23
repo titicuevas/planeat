@@ -10,12 +10,16 @@ import ProfileSetup from './pages/ProfileSetup'
 import Cesta from './pages/Cesta'
 import AuthCallback from './pages/AuthCallback'
 import Receta from './pages/Receta'
+import { AppProvider, useApp } from './context/AppContext'
+import LoadingSpinner from './components/LoadingSpinner'
+import ThemeToggle from './components/ThemeToggle'
 
-function App() {
+function AppContent() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<any>(null)
   const [generandoCesta, setGenerandoCesta] = useState(false)
+  const { isLoading } = useApp()
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -68,14 +72,15 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-secondary-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-secondary-900 flex flex-col transition-colors duration-200">
+      {isLoading && <LoadingSpinner message="Generando menú y lista de la compra..." />}
       <div className="flex-1">
         <Routes>
           <Route index element={!session ? <Welcome /> : <Navigate to="/inicio" replace />} />
@@ -89,18 +94,15 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
-      <footer className="w-full bg-white shadow-inner py-3 flex justify-center items-center">
-        {session && location.pathname === '/inicio' && (
-          <Link to={generandoCesta ? "#" : "/cesta"} className={`text-green-700 font-semibold text-lg flex items-center gap-2 ${generandoCesta ? 'opacity-50 pointer-events-none' : 'hover:underline'}`}
-            tabIndex={generandoCesta ? -1 : 0}
-            aria-disabled={generandoCesta}
-          >
-            <span role="img" aria-label="cesta">🛒</span> Cesta de la compra
-          </Link>
-        )}
-        {generandoCesta && <span className="ml-4 text-yellow-600 animate-pulse">Generando cesta...</span>}
-      </footer>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
   )
 }
 

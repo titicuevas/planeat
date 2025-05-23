@@ -7,7 +7,8 @@ export function getNextMonday() {
 
 export function puedeCrearMenuProximaSemana() {
   const today = new Date();
-  return today.getDay() >= 6; // 6 = sábado, 0 = domingo
+  // Permitir crear menú próxima semana a partir del sábado (getDay() === 6) o domingo (0)
+  return today.getDay() === 6 || today.getDay() === 0;
 }
 
 export function getNextSaturday() {
@@ -15,6 +16,7 @@ export function getNextSaturday() {
   const nextSaturday = new Date(today);
   const daysUntilSaturday = (6 - today.getDay() + 7) % 7;
   nextSaturday.setDate(today.getDate() + daysUntilSaturday);
+  nextSaturday.setHours(0, 0, 0, 0);
   return nextSaturday;
 }
 

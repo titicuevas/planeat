@@ -4,14 +4,16 @@ export async function generateMenuWithGemini({
   promptExtra,
   platoActual,
   dia,
-  tipo
+  tipo,
+  diasRestantes
 }: { 
   objetivo: string, 
   intolerancias: string[], 
   promptExtra?: string,
   platoActual?: string,
   dia?: string,
-  tipo?: string 
+  tipo?: string,
+  diasRestantes?: string[]
 }) {
   let prompt = '';
   const intoleranciasTexto = intolerancias.length > 0
@@ -21,7 +23,11 @@ export async function generateMenuWithGemini({
   if (platoActual && dia && tipo) {
     prompt = `Eres un nutricionista experto. Necesito una alternativa para el siguiente plato que contiene ingredientes no aptos para el usuario:\nPlato actual: "${platoActual}"\nDía: ${dia}\nTipo de comida: ${tipo}\nObjetivo del usuario: "${objetivo}"\n${intoleranciasTexto}\n\nPor favor, sugiere una alternativa saludable y deliciosa que:\n1. No contenga ninguno de los ingredientes no aptos\n2. Sea compatible con el objetivo del usuario\n3. Sea fácil de preparar\n4. Sea similar en tipo de comida (por ejemplo, si es un plato principal, sugiere otro plato principal)\n\nDevuelve SOLO el nombre del plato alternativo, sin explicaciones adicionales.`;
   } else {
-    prompt = promptExtra || `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona cuyo objetivo es: "${objetivo}".\n\n${intoleranciasTexto}\n\nRequisitos específicos:\n1. El menú debe ser diferente cada día\n2. Incluir recetas mediterráneas e internacionales\n3. Ser fácil de preparar\n4. Adaptado al objetivo del usuario\n5. No incluir ningún ingrediente no apto\n6. Incluir una buena variedad de proteínas, carbohidratos y grasas saludables\n7. Considerar el desayuno como la comida más importante del día\n8. Incluir snacks saludables entre comidas principales (snack mañana y snack tarde)\n\nDevuelve el menú en formato JSON, con los días de la semana como claves (lunes a domingo), y para cada día, desayuno, comida, cena, snack mañana y snack tarde.\nEjemplo de formato:\n{\n  "lunes": { "Desayuno": "Avena con frutas", "Comida": "Ensalada de pollo", "Cena": "Sopa de verduras", "Snack mañana": "Fruta fresca", "Snack tarde": "Yogur vegetal" },\n  ...\n}\n\nNo incluyas explicaciones, solo el JSON.`;
+    let diasTexto = '';
+    if (diasRestantes && diasRestantes.length > 0) {
+      diasTexto = `\n- SOLO genera el menú para los siguientes días: ${diasRestantes.join(', ')}. Usa estos días como claves en el JSON.`;
+    }
+    prompt = `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona.\n\nOBJETIVO DEL USUARIO: ${objetivo}\n\nIMPORTANTE: No incluyas ningún plato ni ingrediente que contenga: ${intolerancias.length > 0 ? intolerancias.join(', ') : 'ninguna intolerancia'}. Si el usuario es intolerante a un alimento, no debe aparecer en ninguna comida bajo ningún concepto.\n\nREQUISITOS:\n- Devuelve SOLO un JSON válido, sin explicaciones ni texto fuera del JSON.\n- El JSON debe tener los días de la semana en minúscula como claves ("lunes", "martes", ...).${diasTexto}\n- Para cada día, incluye los campos: "Desayuno", "Comida", "Cena", "Snack mañana", "Snack tarde".\n- Ejemplo de formato:\n{\n  "lunes": { "Desayuno": "Avena con frutas", "Comida": "Ensalada de pollo", "Cena": "Sopa de verduras", "Snack mañana": "Fruta fresca", "Snack tarde": "Yogur vegetal" },\n  ...\n}\n- No incluyas explicaciones, solo el JSON.`;
   }
 
   const res = await fetch("http://localhost:3001/api/generate-menu", {
@@ -34,6 +40,7 @@ export async function generateMenuWithGemini({
   if (platoActual) return data.text.trim();
   let menu;
   try {
+    console.log('Respuesta cruda de Gemini:', data.text);
     menu = JSON.parse(data.text);
   } catch {
     const match = data.text.match(/\{[\s\S]*\}/);
@@ -41,10 +48,10 @@ export async function generateMenuWithGemini({
       try {
         menu = JSON.parse(match[0]);
       } catch {
-        throw new Error('No se pudo parsear la respuesta de Gemini');
+        throw new Error('No se pudo parsear la respuesta de Gemini (bloque JSON)');
       }
     } else {
-      throw new Error('No se encontró un JSON válido en la respuesta');
+      throw new Error('No se encontró un JSON válido en la respuesta de Gemini');
     }
   }
   // Validar que ningún plato contiene ingredientes de las intolerancias

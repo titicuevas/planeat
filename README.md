@@ -1,14 +1,24 @@
 # Planeat 🍽️
 
+<p align="center">
+  <img src="public/logo/Logo.png" alt="Planeat Logo" width="180" />
+</p>
+
 Planeat es una aplicación web moderna diseñada para ayudarte a planificar tus comidas de manera eficiente y saludable. Desarrollada con tecnologías modernas, Planeat te permite organizar tus recetas, crear planes de comidas y gestionar tu lista de compras de manera intuitiva.
 
-## 🚀 Características
+## 🚀 Características principales
 
-- 📝 Planificación de comidas semanal
-- 📋 Gestión de recetas
-- 🛒 Lista de compras automática
-- 📱 Diseño responsive
-- 🎨 Interfaz moderna y amigable
+- 📝 Planificación de comidas semanal adaptable (el menú se genera solo para los días restantes si se crea a mitad de semana)
+- 📋 Gestión y búsqueda de recetas con nombres normalizados (soporte para tildes y ñ)
+- 🛒 Lista de la compra automática, agrupada por tipo de ingrediente y con sumas inteligentes de cantidades
+- 🌗 Modo claro/oscuro en toda la app
+- 🖼️ Favicon y branding personalizados con el logo de Planeat
+- 📱 Diseño responsive y profesional
+- 🎨 Interfaz moderna, atractiva y coherente
+- 👤 Perfil de usuario con objetivo y restricciones alimentarias
+- 🔒 Autenticación y registro seguro
+- 🗓️ Visualización de fechas y días reales en el menú semanal
+- ✅ Feedback visual y animaciones (confeti al completar la compra, etc.)
 
 ## 🛠️ Tecnologías Utilizadas
 
@@ -16,7 +26,8 @@ Planeat es una aplicación web moderna diseñada para ayudarte a planificar tus 
 - TypeScript
 - Vite
 - Tailwind CSS
-- Chakra UI
+- Supabase
+- SweetAlert2
 
 ## 📦 Instalación
 
@@ -45,12 +56,25 @@ npm run dev
 ```
 src/
 ├── components/     # Componentes reutilizables
-├── pages/         # Páginas de la aplicación
-├── services/      # Servicios y llamadas a API
-├── hooks/         # Custom hooks
-├── types/         # Definiciones de tipos TypeScript
-└── utils/         # Utilidades y funciones auxiliares
+├── pages/          # Páginas de la aplicación
+├── hooks/          # Custom hooks
+├── types/          # Definiciones de tipos TypeScript
+├── utils/          # Utilidades y funciones auxiliares
+├── api/            # Lógica de integración con Gemini y otras APIs
+└── config/         # Configuración de Supabase y otros servicios
+public/
+└── logo/Logo.png   # Logo y favicon de Planeat
 ```
+
+## 🆕 Novedades recientes
+
+- Nuevo favicon y logo en todas las pestañas (`public/logo/Logo.png`)
+- Títulos de pestaña personalizados para cada vista (Dashboard, Cesta, Recetas, Perfil, etc.)
+- Generación dinámica de menús: si creas el menú a mitad de semana, solo se generan los días restantes
+- Visualización de días y fechas reales en el menú semanal (siempre hasta domingo)
+- Lista de la compra agrupada por tipo de ingrediente y con sumas/conversiones de cantidades
+- Modo oscuro mejorado y coherente en toda la app
+- Feedback visual profesional y animaciones
 
 ## 🤝 Contribuir
 

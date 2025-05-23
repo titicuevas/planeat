@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../config/supabase'
 import { format } from 'date-fns'
@@ -6,14 +6,16 @@ import Swal from 'sweetalert2'
 import type { Session } from '@supabase/supabase-js'
 import { useProfile } from '../hooks/useProfile'
 import { useMealPlans } from '../hooks/useMealPlans'
-import { ProfileInfo } from '../components/ProfileInfo'
+import ProfileInfo from '../components/ProfileInfo'
 import { MenuTable } from '../components/MenuTable'
-import { MenuModal } from '../components/MenuModal'
-import { MealPlansList } from '../components/MealPlansList'
+import MenuModal from '../components/MenuModal'
+import MealPlansList from '../components/MealPlansList'
+import Navbar from '../components/Navbar'
 import { getBaseMondayForDisplay, puedeCrearMenuProximaSemana, getNextSaturday } from '../utils/dateUtils'
 import { normalizaMenuConSnacks, analizarMenu } from '../utils/menuUtils'
 import type { MealPlan, DiaComidas } from '../types/dashboard'
 import { generateMenuWithGemini } from '../api/gemini'
+import { es } from 'date-fns/locale'
 
 interface Profile {
   id: string
@@ -45,6 +47,10 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
     deletePlan,
     updatePlan
   } = useMealPlans(session?.user?.id, profile)
+
+  useEffect(() => {
+    document.title = 'Dashboard - Planeat';
+  }, []);
 
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message })
@@ -141,11 +147,10 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
     }
   }
 
-  const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
+  const handleSuggestAlternativeTable = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
     try {
       setLoadingAlternative({ dia, tipo })
       showToast('success', 'Buscando alternativa...')
-      
       const alternativa = await generateMenuWithGemini({
         objetivo: profile?.goal || '',
         intolerancias: profile?.intolerances || [],
@@ -153,21 +158,18 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
         dia,
         tipo
       })
-
-      if (selectedPlan) {
-        const nuevoMenu = { ...menuDetail }
-        nuevoMenu[dia][tipo] = alternativa
-        setMenuDetail(nuevoMenu)
-        
-        await updatePlan(selectedPlan.id, { meals: nuevoMenu as unknown as Record<string, Record<string, string>> })
+      if (currentWeekPlan) {
+        const nuevoMenu = { ...currentWeekPlan.meals };
+        (nuevoMenu[dia] as any)[tipo as string] = alternativa;
+        await updatePlan(currentWeekPlan.id, { meals: nuevoMenu });
+        setMenuDetail(nuevoMenu as Record<string, DiaComidas>);
+        showToast('success', '¡Alternativa sugerida!')
       }
-
-      showToast('success', '¡Alternativa sugerida!')
-      return alternativa
+      return alternativa;
     } catch (err: any) {
       console.error('Error al sugerir alternativa:', err)
       showToast('error', 'No se pudo sugerir alternativa')
-      return platoActual
+      return platoActual;
     } finally {
       setLoadingAlternative(null)
     }
@@ -175,16 +177,22 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
 
   // Obtener el menú de la semana actual o de la próxima si ya es sábado o domingo
   const getCurrentWeekMenu = () => {
-    const baseMonday = getBaseMondayForDisplay()
-    const weekStr = baseMonday.toISOString().slice(0, 10)
-    let plan = mealPlans.find(plan => plan.week.slice(0, 10) === weekStr)
-    if (!plan) return null
-    
-    const menuNormalizado = normalizaMenuConSnacks(plan.meals, profile?.intolerances || [])
-    return { ...plan, meals: menuNormalizado }
+    const now = new Date();
+    // Si es lunes o después, buscar el menú de la semana actual (a partir del lunes)
+    const baseMonday = new Date(now);
+    baseMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    baseMonday.setHours(0, 0, 0, 0);
+    const weekStr = baseMonday.toISOString().slice(0, 10);
+    let plan = mealPlans.find(plan => plan.week.slice(0, 10) === weekStr);
+    if (!plan) return null;
+    const menuNormalizado = normalizaMenuConSnacks(plan.meals, profile?.intolerances || []);
+    return { ...plan, meals: menuNormalizado };
   }
 
   const currentWeekPlan = getCurrentWeekMenu()
+
+  // Detectar si el plan es de la próxima semana
+  const isNextWeekPlan = currentWeekPlan && new Date(currentWeekPlan.week) > getBaseMondayForDisplay();
 
   if (toast && toast.type === 'error') {
     return (
@@ -202,7 +210,15 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
     )
   }
 
-  if (!profileLoading && profileLoaded && (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0)) {
+  if (profileLoading || !profileLoaded || plansLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    )
+  }
+
+  if (!profile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4" role="alert">
@@ -218,68 +234,116 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
     )
   }
 
-  if (profileLoading || !profileLoaded || plansLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8">
-      <ProfileInfo profile={profile} onLogout={handleLogout} />
+    <div className="min-h-screen bg-gray-50 dark:bg-secondary-900 flex flex-col">
+      <Navbar />
+      <div className="flex-1 py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center">
+        <ProfileInfo profile={profile} onLogout={handleLogout} />
 
-      <div className="w-full max-w-2xl bg-white rounded-xl shadow p-6 mb-8">
-        {!currentWeekPlan && (
-          <button
-            onClick={handleCreatePlan}
-            disabled={creatingPlan}
-            className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-          >
-            {creatingPlan ? 'Generando menú...' : 'Crear menú'}
-          </button>
-        )}
+        <div className="w-full max-w-2xl card mx-auto">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+            <h2 className="text-2xl font-bold text-secondary-900 dark:text-white">Mi Plan Semanal</h2>
+            <div className="flex flex-col sm:flex-row gap-2">
+              {!currentWeekPlan && (
+                <button
+                  onClick={handleCreatePlan}
+                  disabled={creatingPlan}
+                  className="btn btn-primary w-full sm:w-auto"
+                >
+                  {creatingPlan ? 'Generando menú...' : 'Crear menú'}
+                </button>
+              )}
 
-        {currentWeekPlan && (
-          <button
-            onClick={handleCreateNextWeekPlan}
-            disabled={creatingNextWeek || !puedeCrearMenuProximaSemana()}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 ml-2"
-          >
-            {creatingNextWeek
-              ? 'Generando menú de la próxima semana...'
-              : puedeCrearMenuProximaSemana()
-                ? `Crear menú para la próxima semana (${format(getNextSaturday(), 'dd/MM/yyyy')})`
-                : `Disponible el ${format(getNextSaturday(), 'dd/MM/yyyy')} para hacer la compra`}
-          </button>
-        )}
+              {currentWeekPlan && (
+                <button
+                  onClick={handleCreateNextWeekPlan}
+                  disabled={creatingNextWeek || !puedeCrearMenuProximaSemana()}
+                  className="btn btn-secondary w-full sm:w-auto"
+                >
+                  {creatingNextWeek ? 'Generando menú...' : 'Crear menú próxima semana'}
+                </button>
+              )}
+              {!puedeCrearMenuProximaSemana() && (
+                <span className="text-xs text-secondary-500 dark:text-secondary-300 mt-1 block">
+                  Podrás crear el próximo menú a partir del: <b>{format(getNextSaturday(), 'PPPPp', { locale: es })}</b>
+                </span>
+              )}
+            </div>
+          </div>
 
-        <div className="mt-8">
-          <h3 className="text-xl font-bold text-green-700 mb-2">Menú de esta semana</h3>
-          {currentWeekPlan && currentWeekPlan.meals ? (
-            <MenuTable
-              menu={currentWeekPlan.meals}
-              onSuggestAlternative={handleSuggestAlternative}
-              intolerances={profile?.intolerances}
-            />
-          ) : (
-            <div className="text-gray-500">Aún no tienes menú para esta semana. ¡Genera uno para empezar!</div>
+          {currentWeekPlan && (
+            <div className="space-y-4">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-lg font-semibold text-secondary-800 dark:text-secondary-200">
+                    {format(new Date(currentWeekPlan.week), 'dd/MM/yyyy')}
+                  </h3>
+                  <button
+                    onClick={() => navigate('/cesta')}
+                    className="btn btn-green flex items-center gap-2"
+                  >
+                    <span role="img" aria-label="carrito">🛒</span> Lista de la compra
+                  </button>
+                </div>
+                <button
+                  onClick={() => handleShowMenu(currentWeekPlan)}
+                  className="btn btn-secondary"
+                >
+                  Ver menú
+                </button>
+              </div>
+              {/* Tabla-resumen del menú semanal */}
+              <div className="mt-4">
+                <MenuTable
+                  menu={currentWeekPlan.meals}
+                  onSuggestAlternative={handleSuggestAlternativeTable}
+                  intolerances={profile?.intolerances}
+                  verSemanaCompleta={isNextWeekPlan}
+                  fechaInicio={isNextWeekPlan ? undefined : new Date(currentWeekPlan.created_at)}
+                />
+              </div>
+            </div>
           )}
+
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-secondary-800 dark:text-secondary-200 mb-4">
+              Planes anteriores
+            </h3>
+            <MealPlansList
+              mealPlans={mealPlans.filter(plan => plan.id !== currentWeekPlan?.id)}
+              onShowMenu={handleShowMenu}
+              onDeletePlan={handleDeletePlan}
+            />
+          </div>
         </div>
+
+        {showMenuModal && selectedPlan && menuDetail && (
+          <MenuModal
+            plan={selectedPlan}
+            menuDetail={menuDetail}
+            onClose={() => {
+              setShowMenuModal(false)
+              setSelectedPlan(null)
+              setMenuDetail(null)
+            }}
+            onDelete={async () => await handleDeletePlan(selectedPlan?.id || '')}
+            onSuggestAlternative={handleSuggestAlternativeTable}
+            loadingAlternative={loadingAlternative}
+            verSemanaCompleta={isNextWeekPlan}
+            fechaInicio={isNextWeekPlan ? undefined : selectedPlan ? new Date(selectedPlan.created_at) : undefined}
+          />
+        )}
+
+        {toast && (
+          <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100' 
+              : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100'
+          }`}>
+            {toast.message}
+          </div>
+        )}
       </div>
-
-      <MealPlansList mealPlans={mealPlans} onShowMenu={handleShowMenu} />
-
-      <MenuModal
-        isOpen={showMenuModal}
-        onClose={() => setShowMenuModal(false)}
-        plan={selectedPlan}
-        menu={menuDetail}
-        onSuggestAlternative={handleSuggestAlternative}
-        onUpdatePlan={updatePlan}
-        intolerances={profile?.intolerances}
-      />
     </div>
   )
 } 

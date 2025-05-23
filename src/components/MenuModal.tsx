@@ -6,15 +6,17 @@ import { getBaseMondayForDisplay } from '../utils/dateUtils';
 import { analizarMenu, normalizaMenuConSnacks } from '../utils/menuUtils';
 import type { MealPlan, DiaComidas } from '../types/dashboard';
 import Swal from 'sweetalert2';
+import { es } from 'date-fns/locale';
 
 interface MenuModalProps {
-  isOpen: boolean;
+  plan: MealPlan;
+  menuDetail: Record<string, DiaComidas>;
   onClose: () => void;
-  plan: MealPlan | null;
-  menu: Record<string, DiaComidas> | null;
+  onDelete: () => Promise<void>;
   onSuggestAlternative: (dia: string, tipo: keyof DiaComidas, platoActual: string) => Promise<string>;
-  onUpdatePlan: (planId: string, updates: Partial<MealPlan>) => Promise<boolean>;
-  intolerances?: string[] | null;
+  loadingAlternative: { dia: string; tipo: keyof DiaComidas } | null;
+  fechaInicio?: Date;
+  verSemanaCompleta?: boolean;
 }
 
 const TIPOS_COMIDA: (keyof DiaComidas)[] = [
@@ -25,26 +27,24 @@ const TIPOS_COMIDA: (keyof DiaComidas)[] = [
   'Snack tarde',
 ];
 
-export function MenuModal({
-  isOpen,
-  onClose,
+const MenuModal: React.FC<MenuModalProps> = ({
   plan,
-  menu,
+  menuDetail,
+  onClose,
+  onDelete,
   onSuggestAlternative,
-  onUpdatePlan,
-  intolerances
-}: MenuModalProps) {
+  loadingAlternative,
+  fechaInicio,
+  verSemanaCompleta = false
+}: MenuModalProps) => {
   const [savingEdit, setSavingEdit] = useState(false);
-  const [verSemanaCompleta, setVerSemanaCompleta] = useState(false);
-  const [menuLocal, setMenuLocal] = useState<Record<string, DiaComidas>>(() => menu ? normalizaMenuConSnacks(menu) : {});
-  const [loadingCell, setLoadingCell] = useState<{dia: string, tipo: keyof DiaComidas} | null>(null);
+  const [menuLocal, setMenuLocal] = useState<Record<string, DiaComidas>>(() => menuDetail ? normalizaMenuConSnacks(menuDetail) : {});
 
   React.useEffect(() => {
-    setMenuLocal(menu ? normalizaMenuConSnacks(menu) : {});
-  }, [menu]);
+    setMenuLocal(menuDetail ? normalizaMenuConSnacks(menuDetail) : {});
+  }, [menuDetail]);
 
   const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
-    setLoadingCell({ dia, tipo });
     try {
       const alternativa = await onSuggestAlternative(dia, tipo, platoActual);
       const result = await Swal.fire({
@@ -56,17 +56,14 @@ export function MenuModal({
         cancelButtonText: 'No',
         confirmButtonColor: '#22c55e',
       });
-      if (result.isConfirmed && plan) {
+      if (result.isConfirmed) {
         const nuevoMenu = { ...menuLocal };
         nuevoMenu[dia] = { ...nuevoMenu[dia], [tipo]: alternativa };
         const menuNormalizado = normalizaMenuConSnacks(nuevoMenu);
         setMenuLocal(menuNormalizado);
-        await onUpdatePlan(plan.id, { meals: menuNormalizado as unknown as Record<string, Record<string, string>> });
       }
     } catch (err) {
       Swal.fire('Error', 'No se pudo sugerir alternativa', 'error');
-    } finally {
-      setLoadingCell(null);
     }
   };
 
@@ -76,127 +73,119 @@ export function MenuModal({
   const totalMacros = analisis.carbohidratos + analisis.proteinas + analisis.grasas;
 
   // Calcular los días a mostrar según el estado verSemanaCompleta
-  const baseMonday = getBaseMondayForDisplay();
-  const today = new Date();
-  let diasAMostrar = WEEK_DAYS;
-  if (!verSemanaCompleta) {
-    // Calcular el índice del día de hoy respecto al lunes
-    const dayIndex = Math.max(0, today.getDay() === 0 ? 6 : today.getDay() - 1); // 0=lunes, 6=domingo
-    diasAMostrar = WEEK_DAYS.slice(dayIndex);
+  const fechaInicioMenu = new Date(plan.week);
+  let diasAMostrar: Date[] = [];
+  if (verSemanaCompleta) {
+    // Menú de la semana completa: lunes a domingo
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(fechaInicioMenu);
+      d.setDate(fechaInicioMenu.getDate() + i);
+      diasAMostrar.push(d);
+    }
+  } else if (fechaInicio) {
+    // Menú creado a mitad de semana: desde el día de creación hasta domingo
+    const diaSemana = fechaInicio.getDay() === 0 ? 6 : fechaInicio.getDay() - 1; // 0=lunes, 6=domingo
+    const diasRestantes = 7 - diaSemana;
+    for (let i = 0; i < diasRestantes; i++) {
+      const d = new Date(fechaInicio);
+      d.setDate(fechaInicio.getDate() + i);
+      diasAMostrar.push(d);
+    }
+  } else {
+    // Fallback: mostrar todos los días del menú
+    for (let i = 0; i < Object.keys(menuLocal).length; i++) {
+      const d = new Date(fechaInicioMenu);
+      d.setDate(fechaInicioMenu.getDate() + i);
+      diasAMostrar.push(d);
+    }
+  }
+
+  // Calcular rango de fechas para la cabecera
+  let fechaInicioSemana: Date, fechaFinSemana: Date;
+  if (verSemanaCompleta) {
+    fechaInicioSemana = new Date(plan.week);
+    fechaFinSemana = new Date(plan.week);
+    fechaFinSemana.setDate(fechaInicioSemana.getDate() + 6);
+  } else if (fechaInicio) {
+    fechaInicioSemana = new Date(fechaInicio);
+    fechaFinSemana = new Date(fechaInicio);
+    fechaFinSemana.setDate(fechaInicioSemana.getDate() + diasAMostrar.length - 1);
+  } else {
+    fechaInicioSemana = new Date(plan.week);
+    fechaFinSemana = new Date(plan.week);
+    fechaFinSemana.setDate(fechaInicioSemana.getDate() + diasAMostrar.length - 1);
   }
 
   return (
-    <Dialog open={isOpen} onClose={onClose} className="fixed z-50 inset-0 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4">
-        <div className="fixed inset-0 bg-black opacity-30" aria-hidden="true" />
-        <div className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full mx-auto p-6 z-10">
-          {/* Análisis nutricional */}
-          <div className="mb-4 p-4 bg-green-50 rounded-lg shadow flex flex-col md:flex-row md:items-center md:justify-between">
-            <div className="text-green-800 font-semibold mb-2 md:mb-0">
-              Análisis nutricional estimado de la semana:
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-secondary-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-secondary-200 dark:border-secondary-700">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-secondary-900 dark:text-white">
+                Menú del {format(fechaInicioSemana, 'dd/MM/yyyy')} al {format(fechaFinSemana, 'dd/MM/yyyy')}
+              </h2>
+              <p className="text-secondary-600 dark:text-secondary-300 text-sm mt-1">Semana completa</p>
             </div>
-            <div className="flex flex-wrap gap-4">
-              <div>
-                <span className="font-bold">Carbohidratos:</span> {analisis.carbohidratos}g
-                ({totalMacros > 0 ? Math.round(analisis.carbohidratos/totalMacros*100) : 0}%)
-              </div>
-              <div>
-                <span className="font-bold">Proteínas:</span> {analisis.proteinas}g
-                ({totalMacros > 0 ? Math.round(analisis.proteinas/totalMacros*100) : 0}%)
-              </div>
-              <div>
-                <span className="font-bold">Grasas:</span> {analisis.grasas}g
-                ({totalMacros > 0 ? Math.round(analisis.grasas/totalMacros*100) : 0}%)
-              </div>
-              <div>
-                <span className="font-bold">Calorías estimadas:</span> {analisis.calorias} kcal
-              </div>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="btn btn-primary"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
-
-          {/* Botón para ver semana completa */}
-          <div className="flex justify-end mb-2">
-            <button
-              className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm font-semibold text-gray-700 transition-colors"
-              onClick={() => setVerSemanaCompleta(v => !v)}
-            >
-              {verSemanaCompleta ? 'Ver días restantes' : 'Ver toda la semana'}
-            </button>
+        </div>
+        <div className="overflow-auto p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {diasAMostrar.map((fecha, idx) => {
+              const nombreDia = fecha.toLocaleDateString('es-ES', { weekday: 'long' });
+              const nombreDiaCapital = nombreDia.charAt(0).toUpperCase() + nombreDia.slice(1);
+              const fechaStr = `${nombreDiaCapital} ${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`;
+              // Buscar el nombre del día en el objeto menuLocal (puede ser Lunes, Martes, etc.)
+              const keyMenu = Object.keys(menuLocal)[idx];
+              return (
+                <div key={fechaStr} className="bg-green-50 dark:bg-secondary-900 rounded-xl shadow-md p-4 flex flex-col gap-2 border border-green-100 dark:border-secondary-700">
+                  <h3 className="text-lg font-semibold text-primary-600 dark:text-primary-400 mb-2 border-b border-green-200 dark:border-secondary-700 pb-1">
+                    {fechaStr}
+                  </h3>
+                  <div className="space-y-3">
+                    {TIPOS_COMIDA.map((tipo) => (
+                      <div key={tipo} className="space-y-1">
+                        <h4 className="text-xs font-medium text-secondary-600 dark:text-secondary-400 capitalize">
+                          {tipo}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <p className="flex-1 text-secondary-900 dark:text-secondary-100 text-sm">
+                            {menuLocal[keyMenu]?.[tipo] || 'No especificado'}
+                          </p>
+                          <button
+                            onClick={() => handleSuggestAlternative(keyMenu, tipo, menuLocal[keyMenu]?.[tipo] || '')}
+                            disabled={!!loadingAlternative}
+                            className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 disabled:opacity-50"
+                            title="Sugerir alternativa"
+                          >
+                            {loadingAlternative && loadingAlternative.dia === keyMenu && loadingAlternative.tipo === tipo ? (
+                              <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin-slow" />
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          {/* Tabla del menú */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full border text-xs md:text-sm rounded-xl overflow-hidden shadow">
-              <thead>
-                <tr className="bg-green-50">
-                  <th className="p-2 border font-semibold">Comida</th>
-                  {diasAMostrar.map((dia, idx) => {
-                    const planDate = new Date(baseMonday);
-                    planDate.setDate(baseMonday.getDate() + WEEK_DAYS.indexOf(dia));
-                    const fechaStr = `${dia.charAt(0).toUpperCase() + dia.slice(1)} ${planDate.getDate().toString().padStart(2, '0')}/${(planDate.getMonth() + 1).toString().padStart(2, '0')}/${planDate.getFullYear()}`;
-                    const isToday = today.toDateString() === planDate.toDateString();
-                    return (
-                      <th key={dia} className={`p-2 border font-semibold capitalize${isToday ? ' bg-green-300 text-green-900' : ''}`}>
-                        {fechaStr}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {TIPOS_COMIDA.map(tipo => (
-                  <tr key={tipo} className="hover:bg-green-50 transition-colors">
-                    <td className="p-2 border font-semibold capitalize bg-green-50">
-                      {tipo === 'Desayuno' && '🍳 Desayuno'}
-                      {tipo === 'Comida' && '🍽️ Comida'}
-                      {tipo === 'Cena' && '🌙 Cena'}
-                      {tipo === 'Snack mañana' && '☀️ Snack mañana'}
-                      {tipo === 'Snack tarde' && '🌆 Snack tarde'}
-                    </td>
-                    {diasAMostrar.map((dia) => {
-                      const comidas = menuLocal[dia] || {
-                        Desayuno: '-',
-                        Comida: '-',
-                        Cena: '-',
-                        'Snack mañana': '-',
-                        'Snack tarde': '-',
-                      };
-                      const valor = comidas[tipo] || '-';
-                      const isLoading = loadingCell && loadingCell.dia === dia && loadingCell.tipo === tipo;
-                      return (
-                        <td key={dia} className="p-2 border text-xs md:text-sm" style={{ minWidth: 120 }}>
-                          {isLoading ? (
-                            <span className="text-green-600 animate-pulse">Buscando...</span>
-                          ) : (
-                            <>
-                              {valor}
-                              <button
-                                className="ml-2 text-xs text-blue-600 underline"
-                                onClick={() => handleSuggestAlternative(dia, tipo, valor)}
-                                title="Sugerir alternativa"
-                                disabled={!!loadingCell}
-                              >
-                                ¿Otra?
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="mt-6 w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition-colors"
-          >
-            Cerrar
-          </button>
         </div>
       </div>
-    </Dialog>
+    </div>
   );
-} 
+}
+
+export default MenuModal; 

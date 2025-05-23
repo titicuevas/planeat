@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../config/supabase';
+import Navbar from '../components/Navbar';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -28,6 +29,10 @@ const Login = () => {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    document.title = 'Iniciar sesión - Planeat';
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -41,25 +46,29 @@ const Login = () => {
     setError(null);
     setLoading(true);
 
+    if (!formData.email || !formData.password) {
+      setError('Por favor, completa todos los campos.');
+      setLoading(false);
+      return;
+    }
+    if (!/^[^\s@]+@[^"]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Introduce un correo electrónico válido.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password
       });
-
-      console.log('Resultado login:', { data, error });
-
       if (error) throw error;
-
       if (data.user) {
-        // Comprobar si existe el perfil
-        let { data: profile, error: profileError } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
           .maybeSingle();
-        console.log('Perfil recuperado:', { profile, profileError });
-        // Si NO está marcado 'Recuérdame', mueve la sesión a sessionStorage
         if (!recuerdame) {
           const key = Object.keys(localStorage).find(k => k.includes('sb-') && k.includes('-auth-token'));
           if (key) {
@@ -70,7 +79,6 @@ const Login = () => {
             }
           }
         }
-        // Redirección según si el perfil está completo
         const userProfile = profile || {
           name: data.user.user_metadata?.name || '',
           goal: null,
@@ -85,142 +93,132 @@ const Login = () => {
         setError('No se pudo obtener el usuario tras el login.');
       }
     } catch (error) {
-      console.error('Error en login:', error);
       setError(error instanceof Error ? error.message : 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
   };
 
-  // Si el usuario ya está autenticado, mostrar botón de cerrar sesión
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="absolute top-4 right-4">
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              setIsAuthenticated(false);
-              navigate('/login');
-            }}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
-          >
-            Cerrar sesión
-          </button>
-        </div>
-        <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Ya has iniciado sesión
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Si deseas cambiar de cuenta, primero cierra la sesión.
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-green-100/60 via-green-200/40 to-secondary-900/80 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+        <Navbar />
+        <div className="w-full max-w-md mx-auto flex flex-col items-center">
+          <div className="w-full bg-white dark:bg-secondary-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center">
+            <h2 className="text-3xl font-extrabold text-secondary-900 dark:text-white mb-2 text-center">Ya has iniciado sesión</h2>
+            <p className="text-sm text-secondary-600 dark:text-secondary-300 mb-6 text-center">
+              Si deseas cambiar de cuenta, primero cierra la sesión.
+            </p>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setIsAuthenticated(false);
+                navigate('/login');
+              }}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors mt-2"
+            >
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Inicia sesión en tu cuenta
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            O{' '}
-            <Link to="/register" className="font-medium text-green-600 hover:text-green-500">
-              regístrate si no tienes una cuenta
-            </Link>
-          </p>
-        </div>
-
-        {confirmed && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded relative" role="alert">
-            <span className="block sm:inline">¡Correo confirmado correctamente! Ahora puedes iniciar sesión.</span>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded relative" role="alert">
-            <span className="block sm:inline">{successMessage}</span>
-          </div>
-        )}
-
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded relative" role="alert">
-              <span className="block sm:inline">{error}</span>
-            </div>
-          )}
-
-          <div className="rounded-md shadow-sm space-y-4">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Correo electrónico
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm"
-                placeholder="Correo electrónico"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-lg relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm"
-                placeholder="Contraseña"
-                value={formData.password}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                checked={recuerdame}
-                onChange={e => setRecuerdame(e.target.checked)}
-                className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                Recuérdame
-              </label>
-            </div>
-
-            <div className="text-sm">
-              <Link to="/forgot-password" className="font-medium text-green-600 hover:text-green-500">
-                ¿Olvidaste tu contraseña?
+    <div className="min-h-screen bg-gradient-to-br from-green-100/60 via-green-200/40 to-secondary-900/80 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 transition-colors duration-300">
+      <Navbar />
+      <div className="flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-80px)]">
+        <div className="w-full max-w-md mx-auto flex flex-col items-center">
+          <div className="w-full bg-white dark:bg-secondary-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center">
+            <h2 className="text-3xl font-extrabold text-secondary-900 dark:text-white mb-2 text-center">Inicia sesión en tu cuenta</h2>
+            <p className="text-sm text-secondary-600 dark:text-secondary-300 mb-6 text-center">
+              O{' '}
+              <Link to="/register" className="font-medium text-green-600 hover:text-green-500">
+                regístrate si no tienes una cuenta
               </Link>
-            </div>
-          </div>
+            </p>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-            </button>
+            {confirmed && (
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 px-4 py-3 rounded mb-4 w-full" role="alert">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                <span>¡Correo confirmado correctamente! Ahora puedes iniciar sesión.</span>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="flex items-center gap-2 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 text-green-600 dark:text-green-300 px-4 py-3 rounded mb-4 w-full" role="alert">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                <span>{successMessage}</span>
+              </div>
+            )}
+
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-300 px-4 py-3 rounded mb-4 w-full animate-shake" role="alert">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form className="w-full space-y-5" onSubmit={handleSubmit} autoComplete="on">
+              <div>
+                <label htmlFor="email" className="sr-only">Correo electrónico</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-secondary-600 placeholder-gray-500 dark:placeholder-secondary-400 text-secondary-900 dark:text-secondary-100 bg-white dark:bg-secondary-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-base shadow-sm"
+                  placeholder="Correo electrónico"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="sr-only">Contraseña</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className="appearance-none rounded-lg relative block w-full px-4 py-3 border border-gray-300 dark:border-secondary-600 placeholder-gray-500 dark:placeholder-secondary-400 text-secondary-900 dark:text-secondary-100 bg-white dark:bg-secondary-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-base shadow-sm"
+                  placeholder="Contraseña"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    checked={recuerdame}
+                    onChange={e => setRecuerdame(e.target.checked)}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="remember-me" className="ml-2 block text-sm text-secondary-900 dark:text-secondary-100">
+                    Recuérdame
+                  </label>
+                </div>
+                <div className="text-sm">
+                  <Link to="/forgot-password" className="font-medium text-green-600 hover:text-green-500">
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 rounded-lg font-bold text-lg bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+              >
+                {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+              </button>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

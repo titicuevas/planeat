@@ -13,7 +13,7 @@ export interface MealPlan {
   title: string
   week: string
   created_at: string
-  meals: Record<string, Record<string, string>>
+  meals: Record<string, DiaComidas>
   note?: string
 }
 
@@ -23,6 +23,7 @@ export interface DiaComidas {
   Cena: string;
   'Snack mañana': string;
   'Snack tarde': string;
+  [key: string]: string;
 }
 
 export const GOALS = [
@@ -54,7 +55,15 @@ export const mealTypeImages: Record<string, string> = {
   Cena: 'https://images.unsplash.com/photo-1502741338009-cac2772e18bc?auto=format&fit=crop&w=400&q=80'
 }
 
-export const WEEK_DAYS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+export const WEEK_DAYS = [
+  'Lunes',
+  'Martes',
+  'Miércoles',
+  'Jueves',
+  'Viernes',
+  'Sábado',
+  'Domingo'
+] as const;
 
 export const SNACKS_SALUDABLES = [
   'Fruta fresca (manzana, plátano, pera, uvas)',

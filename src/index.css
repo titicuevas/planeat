@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply antialiased text-secondary-900 dark:text-secondary-100;
   }
 
   html {
@@ -14,14 +14,45 @@
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
   }
   
   .btn-primary {
-    @apply bg-blue-500 text-white hover:bg-blue-600;
+    @apply bg-primary-500 text-white hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-700;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary-200 text-secondary-800 hover:bg-secondary-300 dark:bg-secondary-700 dark:text-secondary-100 dark:hover:bg-secondary-600;
+  }
+  
+  .input {
+    @apply w-full px-4 py-2 rounded-lg border border-secondary-300 dark:border-secondary-600 
+           bg-white dark:bg-secondary-800 
+           focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400
+           text-secondary-900 dark:text-secondary-100
+           placeholder-secondary-500 dark:placeholder-secondary-400;
   }
   
   .card {
-    @apply bg-white rounded-xl shadow-md p-6;
+    @apply bg-white dark:bg-secondary-800 rounded-lg shadow-md p-6 transition-colors duration-200;
   }
+
+  .nav-link {
+    @apply text-secondary-600 hover:text-primary-600 dark:text-secondary-300 dark:hover:text-primary-400 
+           transition-colors duration-200;
+  }
+}
+
+/* Animaciones personalizadas */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
 } 
