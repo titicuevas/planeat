@@ -6,7 +6,10 @@ import fetch from "node-fetch";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'https://planeat.up.railway.app',
+  credentials: true
+}));
 app.use(express.json());
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -38,6 +41,7 @@ app.post("/api/receta-detalle", async (req, res) => {
   try {
     const { nombre } = req.body;
     if (!nombre) return res.status(400).json({ error: 'Falta el nombre de la receta' });
+
     const prompt = `Eres un chef profesional. Dame la receta detallada para preparar el siguiente plato: "${nombre}".\nDevuelve SOLO un JSON con los siguientes campos:\n- "nombre": nombre del plato\n- "ingredientes": array de objetos con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Pollo", "cantidad": "1 kg"}, ...])\n- "pasos": array de strings, cada uno es un paso de la elaboración\nNo incluyas explicaciones ni texto fuera del JSON. Si no conoces la receta, invéntala de forma realista y devuelve SIEMPRE el JSON pedido.`;
     console.log('Prompt enviado a Gemini:', prompt);
     const body = {

@@ -30,7 +30,14 @@ export default function AuthCallback() {
           .maybeSingle();
 
         if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
-          navigate('/perfil', { replace: true });
+          // Obtener el token de autenticación
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          if (accessToken) {
+            navigate(`/perfil?token=${accessToken}`, { replace: true });
+          } else {
+            navigate('/perfil', { replace: true });
+          }
         } else {
           navigate('/inicio', { replace: true });
         }
