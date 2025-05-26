@@ -1,6 +1,5 @@
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
-import Navbar from '../components/Navbar';
 import { useEffect } from 'react';
 
 const Welcome = () => {
@@ -10,7 +9,6 @@ const Welcome = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-secondary-900 transition-colors duration-300">
-      <Navbar />
       {/* Hero Section */}
       <div className="relative overflow-hidden flex flex-col items-center justify-center pt-12 pb-20 px-4 sm:px-6 lg:px-8">
         {/* Fondo decorativo */}

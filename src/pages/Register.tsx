@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import Swal from 'sweetalert2';
-import Navbar from '../components/Navbar';
 
 interface FormData {
   email: string;
@@ -103,10 +102,22 @@ const Register = () => {
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: import.meta.env.PROD 
+            ? 'https://planeat.up.railway.app/auth/callback'
+            : `${window.location.origin}/auth/callback`
         }
       });
-      if (error) throw error;
+      if (error) {
+        if (error.message && error.message.toLowerCase().includes('user already registered')) {
+          setError('Este correo ya está registrado. Intenta iniciar sesión o usa otro correo.');
+        } else if (error.message && error.message.toLowerCase().includes('duplicate key value')) {
+          setError('Este correo ya está registrado. Intenta iniciar sesión o usa otro correo.');
+        } else {
+          setError(error.message || 'Error al registrar');
+        }
+        setLoading(false);
+        return;
+      }
       setShowVerifyMsg(true);
       setLoading(false);
     } catch (err: any) {
@@ -137,7 +148,6 @@ const Register = () => {
   if (showVerifyMsg) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-100/60 via-green-200/40 to-secondary-900/80 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 transition-colors duration-300">
-        <Navbar />
         <div className="max-w-md w-full mx-auto mt-16 px-4">
           <div className="w-full bg-white dark:bg-secondary-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center">
             <h2 className="text-2xl font-bold text-green-700 mb-4 text-center">¡Registro exitoso!</h2>
@@ -166,7 +176,6 @@ const Register = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-100/60 via-green-200/40 to-secondary-900/80 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 transition-colors duration-300">
-      <Navbar />
       <div className="flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-80px)]">
         <div className="w-full max-w-md mx-auto flex flex-col items-center">
           <div className="w-full bg-white dark:bg-secondary-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center">

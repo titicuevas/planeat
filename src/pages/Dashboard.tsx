@@ -4,13 +4,11 @@ import { supabase } from '../config/supabase'
 import { format } from 'date-fns'
 import Swal from 'sweetalert2'
 import type { Session } from '@supabase/supabase-js'
-import { useProfile } from '../hooks/useProfile'
 import { useMealPlans } from '../hooks/useMealPlans'
 import ProfileInfo from '../components/ProfileInfo'
 import { MenuTable } from '../components/MenuTable'
 import MenuModal from '../components/MenuModal'
 import MealPlansList from '../components/MealPlansList'
-import Navbar from '../components/Navbar'
 import { getBaseMondayForDisplay, puedeCrearMenuProximaSemana, getNextSaturday } from '../utils/dateUtils'
 import { normalizaMenuConSnacks, analizarMenu } from '../utils/menuUtils'
 import type { MealPlan, DiaComidas } from '../types/dashboard'
@@ -27,7 +25,7 @@ interface Profile {
   intolerances?: string[] | null
 }
 
-export default function Dashboard({ session, setGenerandoCesta }: { session: Session, setGenerandoCesta?: (v: boolean) => void }) {
+export default function Dashboard({ session, profile, setGenerandoCesta, handleLogout }: { session: Session, profile: any, setGenerandoCesta?: (v: boolean) => void, handleLogout?: () => Promise<void> }) {
   const navigate = useNavigate()
   const planTitleRef = useRef<HTMLInputElement>(null)
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null)
@@ -36,7 +34,6 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
   const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   const [loadingAlternative, setLoadingAlternative] = useState<{dia: string, tipo: string} | null>(null)
 
-  const { profile, loading: profileLoading, profileLoaded } = useProfile(session)
   const {
     mealPlans,
     loading: plansLoading,
@@ -52,15 +49,18 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
     document.title = 'Dashboard - Planeat';
   }, []);
 
+  // Mostrar loader solo si está cargando y no hay planes ni se está creando uno
+  const showLoader = plansLoading && !mealPlans.length && !creatingPlan && !creatingNextWeek;
+
   function showToast(type: 'success' | 'error', message: string) {
     setToast({ type, message })
     setTimeout(() => setToast(null), 3500)
   }
 
-  const handleLogout = async () => {
+  const logout = handleLogout || (async () => {
     await supabase.auth.signOut()
     navigate('/login')
-  }
+  });
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -149,18 +149,18 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
 
   const handleSuggestAlternativeTable = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
     try {
-      setLoadingAlternative({ dia, tipo })
+      setLoadingAlternative({ dia, tipo: String(tipo) })
       showToast('success', 'Buscando alternativa...')
       const alternativa = await generateMenuWithGemini({
         objetivo: profile?.goal || '',
         intolerancias: profile?.intolerances || [],
         platoActual,
         dia,
-        tipo
+        tipo: String(tipo)
       })
       if (currentWeekPlan) {
         const nuevoMenu = { ...currentWeekPlan.meals };
-        (nuevoMenu[dia] as any)[tipo as string] = alternativa;
+        (nuevoMenu[dia] as any)[String(tipo)] = alternativa;
         await updatePlan(currentWeekPlan.id, { meals: nuevoMenu });
         setMenuDetail(nuevoMenu as Record<string, DiaComidas>);
         showToast('success', '¡Alternativa sugerida!')
@@ -194,6 +194,14 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
   // Detectar si el plan es de la próxima semana
   const isNextWeekPlan = currentWeekPlan && new Date(currentWeekPlan.week) > getBaseMondayForDisplay();
 
+  if (showLoader) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-secondary-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
+
   if (toast && toast.type === 'error') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
@@ -201,7 +209,7 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
           <span className="block sm:inline">{toast.message}</span>
         </div>
         <button
-          onClick={handleLogout}
+          onClick={logout}
           className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
         >
           Cerrar sesión
@@ -210,35 +218,19 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
     )
   }
 
-  if (profileLoading || !profileLoaded || plansLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
-      </div>
-    )
-  }
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <span className="block sm:inline">Tu perfil está incompleto o no has confirmado tu correo. Por favor, completa tu perfil y confirma tu cuenta para continuar.</span>
-        </div>
-        <button
-          onClick={() => navigate('/perfil')}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
-        >
-          Ir a completar perfil
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-secondary-900 flex flex-col">
-      <Navbar />
       <div className="flex-1 py-8 px-4 sm:px-6 lg:px-8 flex flex-col items-center">
-        <ProfileInfo profile={profile} onLogout={handleLogout} />
+        {/* Bloque de datos del usuario centrado */}
+        <div className="w-full max-w-2xl mx-auto flex flex-col items-center mb-6">
+          {profile ? (
+            <ProfileInfo profile={profile} onLogout={logout} />
+          ) : (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+            </div>
+          )}
+        </div>
 
         <div className="w-full max-w-2xl card mx-auto">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
@@ -273,6 +265,28 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
 
           {currentWeekPlan && (
             <div className="space-y-4">
+              {/* Resumen nutricional */}
+              <div className="flex flex-col items-center bg-green-50 dark:bg-secondary-800 border border-green-200 dark:border-secondary-700 rounded-lg p-4 mb-2 w-full max-w-2xl mx-auto">
+                <span className="text-sm text-secondary-700 dark:text-secondary-300 mb-2">Valores estimados para <b>toda la semana</b> (aproximados):</span>
+                <div className="flex flex-wrap gap-4 justify-center items-center mb-2">
+                  {(() => {
+                    const macros = analizarMenu(currentWeekPlan.meals);
+                    return (
+                      <>
+                        <span className="font-semibold text-green-700 dark:text-green-300">🥖 Carbohidratos: <span className="font-bold">{macros.carbohidratos} g</span></span>
+                        <span className="font-semibold text-green-700 dark:text-green-300">🍗 Proteínas: <span className="font-bold">{macros.proteinas} g</span></span>
+                        <span className="font-semibold text-green-700 dark:text-green-300">🥑 Grasas: <span className="font-bold">{macros.grasas} g</span></span>
+                        <span className="font-semibold text-green-700 dark:text-green-300">🔥 Calorías estimadas: <span className="font-bold">{macros.calorias} kcal</span></span>
+                      </>
+                    );
+                  })()}
+                </div>
+                {/* Promedio diario */}
+                <span className="text-xs text-secondary-600 dark:text-secondary-400">Promedio diario: <b>{(() => {
+                  const macros = analizarMenu(currentWeekPlan.meals);
+                  return `${Math.round(macros.carbohidratos/7)} g carbs, ${Math.round(macros.proteinas/7)} g proteínas, ${Math.round(macros.grasas/7)} g grasas, ${Math.round(macros.calorias/7)} kcal`;
+                })()}</b></span>
+              </div>
               <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
                 <div className="flex items-center gap-4 flex-wrap">
                   <h3 className="text-lg font-semibold text-secondary-800 dark:text-secondary-200">
@@ -298,7 +312,7 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
                   menu={currentWeekPlan.meals}
                   onSuggestAlternative={handleSuggestAlternativeTable}
                   intolerances={profile?.intolerances}
-                  verSemanaCompleta={isNextWeekPlan}
+                  verSemanaCompleta={!!isNextWeekPlan}
                   fechaInicio={isNextWeekPlan ? undefined : new Date(currentWeekPlan.created_at)}
                 />
               </div>
@@ -309,11 +323,13 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
             <h3 className="text-lg font-semibold text-secondary-800 dark:text-secondary-200 mb-4">
               Planes anteriores
             </h3>
-            <MealPlansList
-              mealPlans={mealPlans.filter(plan => plan.id !== currentWeekPlan?.id)}
-              onShowMenu={handleShowMenu}
-              onDeletePlan={handleDeletePlan}
-            />
+            {profile && (
+              <MealPlansList
+                mealPlans={mealPlans.filter(plan => plan.id !== currentWeekPlan?.id)}
+                onShowMenu={handleShowMenu}
+                onDeletePlan={handleDeletePlan}
+              />
+            )}
           </div>
         </div>
 
@@ -329,7 +345,7 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
             onDelete={async () => await handleDeletePlan(selectedPlan?.id || '')}
             onSuggestAlternative={handleSuggestAlternativeTable}
             loadingAlternative={loadingAlternative}
-            verSemanaCompleta={isNextWeekPlan}
+            verSemanaCompleta={!!isNextWeekPlan}
             fechaInicio={isNextWeekPlan ? undefined : selectedPlan ? new Date(selectedPlan.created_at) : undefined}
           />
         )}

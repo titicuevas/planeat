@@ -29,10 +29,10 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile, onLogout }) => {
   const icono = profile.goal ? objetivoIcono[profile.goal] : undefined;
 
   return (
-    <div className="w-full max-w-2xl card mb-8 relative">
-      <div className="flex flex-col sm:flex-row items-center gap-4">
-        <div className="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center relative overflow-hidden">
-          {icono && (
+    <div className="w-full max-w-2xl card mb-8 relative flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center w-full">
+        <div className="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center relative overflow-hidden mb-4">
+          {icono && !profile.avatar_url && (
             <img
               src={icono}
               alt={profile.goal || 'Objetivo'}
@@ -45,13 +45,13 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile, onLogout }) => {
               alt={profile.name || 'Avatar'}
               className="w-full h-full rounded-full object-cover relative z-10"
             />
-          ) : (
+          ) : !icono ? (
             <span className="text-3xl text-primary-600 dark:text-primary-400 relative z-10">
               {profile.name?.[0]?.toUpperCase() || '?'}
             </span>
-          )}
+          ) : null}
         </div>
-        <div className="flex-1 text-center sm:text-left">
+        <div className="flex-1 text-center">
           <h2 className="text-2xl font-bold text-secondary-900 dark:text-white">
             {profile.name || 'Usuario'}
           </h2>
@@ -69,14 +69,6 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile, onLogout }) => {
             </p>
           )}
         </div>
-        {/* <div className="flex gap-2 items-center ml-auto">
-          <button
-            onClick={() => navigate('/perfil')}
-            className="btn btn-secondary"
-          >
-            Editar perfil
-          </button>
-        </div> */}
       </div>
     </div>
   );

@@ -10,18 +10,30 @@ export default function AuthCallback() {
   useEffect(() => {
     const syncSession = async () => {
       let tries = 0;
-      let session = null;
-      // Esperar hasta que la sesión esté activa o agotar intentos
+      let user = null;
+      // Esperar hasta que el usuario esté activo o agotar intentos
       while (tries < 10) {
-        const { data } = await supabase.auth.getSession();
-        session = data.session;
-        if (session) break;
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+        if (user) break;
         await new Promise(res => setTimeout(res, 500));
         tries++;
       }
       setChecking(false);
-      if (session) {
-        navigate('/login', { replace: true });
+      
+      if (user) {
+        // Verificar si el perfil está completo
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name, goal, intolerances')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
+          navigate('/perfil', { replace: true });
+        } else {
+          navigate('/inicio', { replace: true });
+        }
       } else {
         setFailed(true);
       }
@@ -34,14 +46,14 @@ export default function AuthCallback() {
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto mb-4"></div>
         <p className="text-green-700 font-semibold">
-          {checking ? 'Confirmando tu cuenta...' : failed ? 'No se pudo activar la sesión automáticamente.' : 'Redirigiendo al login...'}
+          {checking ? 'Confirmando tu cuenta...' : failed ? 'No se pudo activar la sesión automáticamente.' : 'Redirigiendo...'}
         </p>
         <p className="text-gray-600 text-sm mt-2">
           {checking
             ? 'Por favor, espera unos segundos.'
             : failed
             ? 'Haz clic en el botón para ir al login e inicia sesión manualmente.'
-            : 'Ya puedes iniciar sesión.'}
+            : 'Ya puedes continuar.'}
         </p>
         {failed && (
           <button

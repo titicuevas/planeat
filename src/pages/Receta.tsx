@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Navbar from '../components/Navbar';
 
 interface Ingrediente {
   nombre: string;
@@ -101,7 +100,6 @@ export default function Receta() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50/80 via-green-100/60 to-green-200/40 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 flex flex-col items-center py-0 transition-colors duration-300 relative overflow-x-auto">
-      <Navbar />
       {loading ? (
         <div className="flex flex-col items-center justify-center w-full flex-1 mt-24">
           <div className="bg-white/80 dark:bg-secondary-800/90 rounded-2xl shadow-2xl p-10 flex flex-col items-center animate-fade-in scale-100 border border-green-200 dark:border-secondary-700">

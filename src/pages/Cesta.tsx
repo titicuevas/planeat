@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import ReactConfetti from 'react-confetti';
-import Navbar from '../components/Navbar';
+import type { Session } from '@supabase/supabase-js';
 
-export default function Cesta() {
+export default function Cesta({ session, profile }: { session: Session, profile: any }) {
   const navigate = useNavigate();
   const [ingredients, setIngredients] = useState<Array<{ id: string; nombre: string; cantidad?: string; checked: boolean }>>([]);
   const [loading, setLoading] = useState(true);
@@ -78,32 +78,27 @@ export default function Cesta() {
   };
 
   useEffect(() => {
+    let mounted = true;
     async function loadIngredients() {
+      if (!session || !session.user?.id || !profile) return;
       setLoadingStep('menu');
       setLoading(true);
-      // Simular proceso de creación de menú
       await new Promise(res => setTimeout(res, 1000));
       setLoadingStep('cesta');
       try {
-        // Obtener usuario actual
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setIngredients([]);
-          setLoading(false);
-          setLoadingStep('done');
-          return;
-        }
-        // Filtrar por user_id
         const { data, error } = await supabase
           .from('shopping_list')
           .select('id, nombre, cantidad, checked')
-          .eq('user_id', user.id)
+          .eq('user_id', session.user.id)
           .order('nombre');
+        if (!mounted) return;
         if (error) throw error;
         setIngredients(data || []);
       } catch (err) {
+        if (!mounted) return;
         console.error('Error cargando ingredientes:', err);
       } finally {
+        if (!mounted) return;
         setLoading(false);
         setLoadingStep('done');
         setShowReadyMsg(true);
@@ -111,11 +106,19 @@ export default function Cesta() {
       }
     }
     loadIngredients();
-  }, []);
+    return () => { mounted = false; };
+  }, [session, profile]);
 
   useEffect(() => {
     document.title = 'Cesta de la compra - Planeat';
   }, []);
+
+  // Limpiar loader al navegar con el botón volver
+  const handleBack = () => {
+    setLoading(false);
+    setLoadingStep('done');
+    navigate('/inicio');
+  };
 
   // Agrupar ingredientes por nombre y sumar cantidades si es posible
   const groupedIngredients = React.useMemo(() => {
@@ -290,12 +293,20 @@ export default function Cesta() {
     return grupos;
   }, [groupedIngredients]);
 
+  // Mostrar loader si no hay sesión o perfil
+  if (!session || !session.user?.id || !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-secondary-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-secondary-900 flex flex-col items-center py-0 relative transition-colors duration-300">
-      <Navbar />
       <div className="w-full max-w-2xl bg-white dark:bg-secondary-800 rounded-2xl shadow p-6 mb-8 relative mt-8 border border-green-100 dark:border-secondary-700">
         <button
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="absolute left-4 top-4 bg-green-100 dark:bg-secondary-700 text-green-700 dark:text-green-300 px-3 py-1 rounded hover:bg-green-200 dark:hover:bg-secondary-600 transition-colors text-sm font-semibold shadow"
           disabled={loadingStep !== 'done'}
         >

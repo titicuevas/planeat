@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import Navbar from '../components/Navbar';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -27,6 +26,9 @@ const Login = () => {
       setIsAuthenticated(!!user);
     };
     checkAuth();
+    // Forzar actualización tras recarga
+    window.addEventListener('focus', checkAuth);
+    return () => window.removeEventListener('focus', checkAuth);
   }, []);
 
   useEffect(() => {
@@ -51,11 +53,6 @@ const Login = () => {
       setLoading(false);
       return;
     }
-    if (!/^[^\s@]+@[^"]+\.[^\s@]+$/.test(formData.email)) {
-      setError('Introduce un correo electrónico válido.');
-      setLoading(false);
-      return;
-    }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -63,35 +60,12 @@ const Login = () => {
         password: formData.password
       });
       if (error) throw error;
-      if (data.user) {
-        let { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .maybeSingle();
-        if (!recuerdame) {
-          const key = Object.keys(localStorage).find(k => k.includes('sb-') && k.includes('-auth-token'));
-          if (key) {
-            const session = localStorage.getItem(key);
-            if (session) {
-              sessionStorage.setItem(key, session);
-              localStorage.removeItem(key);
-            }
-          }
-        }
-        const userProfile = profile || {
-          name: data.user.user_metadata?.name || '',
-          goal: null,
-          intolerances: null
-        };
-        if (!userProfile.name || !userProfile.goal || !userProfile.intolerances || userProfile.intolerances.length === 0) {
-          navigate('/perfil');
-        } else {
-          navigate('/inicio');
-        }
-      } else {
-        setError('No se pudo obtener el usuario tras el login.');
+      if (!data.session) {
+        setError('No se pudo iniciar sesión. Revisa tu email y contraseña, o verifica tu cuenta.');
+        setLoading(false);
+        return;
       }
+      navigate('/inicio', { replace: true });
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error al iniciar sesión');
     } finally {
@@ -102,7 +76,6 @@ const Login = () => {
   if (isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-100/60 via-green-200/40 to-secondary-900/80 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
-        <Navbar />
         <div className="w-full max-w-md mx-auto flex flex-col items-center">
           <div className="w-full bg-white dark:bg-secondary-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center">
             <h2 className="text-3xl font-extrabold text-secondary-900 dark:text-white mb-2 text-center">Ya has iniciado sesión</h2>
@@ -127,7 +100,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-100/60 via-green-200/40 to-secondary-900/80 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 transition-colors duration-300">
-      <Navbar />
       <div className="flex flex-col items-center justify-center py-8 px-4 sm:px-6 lg:px-8 min-h-[calc(100vh-80px)]">
         <div className="w-full max-w-md mx-auto flex flex-col items-center">
           <div className="w-full bg-white dark:bg-secondary-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center">
