@@ -293,10 +293,10 @@ export default function Cesta() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-secondary-900 flex flex-col items-center py-0 relative transition-colors duration-300">
       <Navbar />
-      <div className="w-full max-w-2xl bg-white dark:bg-secondary-800 rounded-2xl shadow p-6 mb-8 relative mt-8">
+      <div className="w-full max-w-2xl bg-white dark:bg-secondary-800 rounded-2xl shadow p-6 mb-8 relative mt-8 border border-green-100 dark:border-secondary-700">
         <button
           onClick={() => navigate(-1)}
-          className="absolute left-4 top-4 bg-green-100 dark:bg-secondary-700 text-green-700 dark:text-green-300 px-3 py-1 rounded hover:bg-green-200 dark:hover:bg-secondary-600 transition-colors text-sm font-semibold"
+          className="absolute left-4 top-4 bg-green-100 dark:bg-secondary-700 text-green-700 dark:text-green-300 px-3 py-1 rounded hover:bg-green-200 dark:hover:bg-secondary-600 transition-colors text-sm font-semibold shadow"
           disabled={loadingStep !== 'done'}
         >
           ← Volver
@@ -307,24 +307,22 @@ export default function Cesta() {
         <p className="mb-6 text-secondary-700 dark:text-secondary-200 text-center">
           Aquí verás la lista de ingredientes necesarios para preparar todas las comidas de tu menú semanal. Marca los ingredientes que ya tienes para organizar mejor tu compra.
         </p>
-        <div className="bg-green-50 dark:bg-secondary-900 border border-green-200 dark:border-secondary-700 rounded-lg p-4 text-center text-green-800 dark:text-green-200 mb-4">
+        <div className="bg-green-50 dark:bg-secondary-900 border border-green-200 dark:border-secondary-700 rounded-lg p-4 text-center text-green-800 dark:text-green-200 mb-4 font-semibold">
           Próximamente: checklist de ingredientes, descarga en PDF y envío por email.
         </div>
         {/* Botón para marcar toda la lista */}
-        {groupedIngredients.length > 0 && (
-          <div className="flex justify-center w-full mb-4">
-            <button
-              className="bg-green-600 dark:bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700 dark:hover:bg-green-600 font-semibold transition-colors w-full sm:w-auto"
-              onClick={async () => {
-                const allIds = groupedIngredients.flatMap(item => item.ids);
-                await handleToggleGroup(allIds, true);
-              }}
-              disabled={loadingStep !== 'done' || groupedIngredients.every(item => item.checked)}
-            >
-              Lista de la compra completa
-            </button>
-          </div>
-        )}
+        <div className="flex justify-center w-full mb-4">
+          <button
+            className="bg-green-600 dark:bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700 dark:hover:bg-green-600 font-semibold transition-colors w-full sm:w-auto shadow-lg"
+            onClick={async () => {
+              const allIds = groupedIngredients.flatMap(item => item.ids);
+              await handleToggleGroup(allIds, true);
+            }}
+            disabled={loadingStep !== 'done' || groupedIngredients.every(item => item.checked)}
+          >
+            Lista de la compra completa
+          </button>
+        </div>
         {/* Ingredientes agrupados por tipo */}
         <div className="overflow-x-auto">
           <div className="divide-y divide-green-200 dark:divide-secondary-700 mt-6">

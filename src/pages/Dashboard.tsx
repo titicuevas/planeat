@@ -274,13 +274,13 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
           {currentWeekPlan && (
             <div className="space-y-4">
               <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <h3 className="text-lg font-semibold text-secondary-800 dark:text-secondary-200">
                     {format(new Date(currentWeekPlan.week), 'dd/MM/yyyy')}
                   </h3>
                   <button
                     onClick={() => navigate('/cesta')}
-                    className="btn btn-green flex items-center gap-2"
+                    className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg flex items-center gap-2 shadow transition-all text-base focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                   >
                     <span role="img" aria-label="carrito">🛒</span> Lista de la compra
                   </button>
@@ -293,7 +293,7 @@ export default function Dashboard({ session, setGenerandoCesta }: { session: Ses
                 </button>
               </div>
               {/* Tabla-resumen del menú semanal */}
-              <div className="mt-4">
+              <div className="mt-4 overflow-x-auto rounded-lg border border-green-100 dark:border-secondary-700 bg-white dark:bg-secondary-800 shadow">
                 <MenuTable
                   menu={currentWeekPlan.meals}
                   onSuggestAlternative={handleSuggestAlternativeTable}

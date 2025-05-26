@@ -1,14 +1,49 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import ThemeToggle from './ThemeToggle';
+import { supabase } from '../config/supabase';
 
 const Navbar: React.FC = () => {
   const location = useLocation();
   const { isDarkMode } = useApp();
+  const navigate = useNavigate();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userName, setUserName] = useState<string>('');
+
+  useEffect(() => {
+    async function fetchUserName() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Buscar el nombre en la tabla de perfiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name, email')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profile && profile.name) {
+          setUserName(profile.name);
+          localStorage.setItem('planeat_user_name', profile.name);
+        } else {
+          setUserName(user.email || 'Usuario');
+          localStorage.setItem('planeat_user_name', user.email || 'Usuario');
+        }
+      } else {
+        setUserName('');
+      }
+    }
+    fetchUserName();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUserMenuOpen(false);
+    localStorage.removeItem('planeat_user_name');
+    navigate('/login');
+  };
 
   return (
-    <nav className="w-full bg-white dark:bg-secondary-800 shadow-md">
+    <nav className="w-full bg-white dark:bg-secondary-800 shadow-md sticky top-0 z-40 border-b border-green-100 dark:border-secondary-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-2">
@@ -22,12 +57,39 @@ const Navbar: React.FC = () => {
             {location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register' && (
               <Link
                 to="/inicio"
-                className="text-secondary-600 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                className="text-secondary-600 dark:text-secondary-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors font-semibold"
               >
                 Inicio
               </Link>
             )}
             <ThemeToggle />
+            {/* Menú de usuario */}
+            <div className="relative">
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2 px-3 py-1 rounded hover:bg-green-100 dark:hover:bg-secondary-700 transition-colors text-secondary-700 dark:text-secondary-200 font-semibold focus:outline-none"
+                aria-label="Menú de usuario"
+              >
+                <span className="hidden sm:inline">{userName || 'Usuario'}</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-secondary-800 rounded-lg shadow-lg border border-green-100 dark:border-secondary-700 z-50">
+                  <button
+                    onClick={() => { setUserMenuOpen(false); navigate('/perfil'); }}
+                    className="block w-full text-left px-4 py-2 text-secondary-700 dark:text-secondary-200 hover:bg-green-50 dark:hover:bg-secondary-700 rounded-t-lg"
+                  >
+                    Editar perfil
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-secondary-700 rounded-b-lg"
+                  >
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

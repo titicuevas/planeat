@@ -141,6 +141,8 @@ export default function ProfileSetup() {
         setLoading(false);
         return;
       }
+      // Guardar el nombre en localStorage para la navbar
+      localStorage.setItem('planeat_user_name', nombre);
       // Eliminar menú y lista de la compra de la semana actual
       const monday = getTargetMondayForMenu();
       const week = monday.toISOString().slice(0, 10);

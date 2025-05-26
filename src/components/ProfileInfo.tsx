@@ -69,20 +69,14 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile, onLogout }) => {
             </p>
           )}
         </div>
-        <div className="flex gap-2 items-center ml-auto">
+        {/* <div className="flex gap-2 items-center ml-auto">
           <button
             onClick={() => navigate('/perfil')}
             className="btn btn-secondary"
           >
             Editar perfil
           </button>
-          <button
-            onClick={onLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-semibold shadow transition-colors"
-          >
-            Cerrar sesión
-          </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );
