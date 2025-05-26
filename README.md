@@ -128,3 +128,6 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 Titicuevas - [@titicuevas](https://github.com/titicuevas)
 
 Link del Proyecto: [https://github.com/titicuevas/planeat](https://github.com/titicuevas/planeat)
+
+## Enlaces
+- [Acceso al proyecto](https://planeat.up.railway.app)
