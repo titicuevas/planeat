@@ -30,7 +30,8 @@ export async function generateMenuWithGemini({
     prompt = `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona.\n\nOBJETIVO DEL USUARIO: ${objetivo}\n\nIMPORTANTE: No incluyas ningún plato ni ingrediente que contenga: ${intolerancias.length > 0 ? intolerancias.join(', ') : 'ninguna intolerancia'}. Si el usuario es intolerante a un alimento, no debe aparecer en ninguna comida bajo ningún concepto.\n\nREQUISITOS:\n- Devuelve SOLO un JSON válido, sin explicaciones ni texto fuera del JSON.\n- El JSON debe tener los días de la semana en minúscula como claves ("lunes", "martes", ...).${diasTexto}\n- Para cada día, incluye los campos: "Desayuno", "Comida", "Cena", "Snack mañana", "Snack tarde".\n- Ejemplo de formato:\n{\n  "lunes": { "Desayuno": "Avena con frutas", "Comida": "Ensalada de pollo", "Cena": "Sopa de verduras", "Snack mañana": "Fruta fresca", "Snack tarde": "Yogur vegetal" },\n  ...\n}\n- No incluyas explicaciones, solo el JSON.`;
   }
 
-  const res = await fetch("http://localhost:3001/api/generate-menu", {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+  const res = await fetch(`${BACKEND_URL}/api/generate-menu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt })
@@ -79,7 +80,7 @@ export async function generateMenuWithGemini({
 export async function testGeminiAPI() {
   try {
     const prompt = 'Dime una receta saludable para cenar.';
-    const res = await fetch("http://localhost:3001/api/generate-menu", {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/generate-menu`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt })
@@ -97,7 +98,7 @@ export async function testGeminiAPI() {
 
 export async function getIngredientesPlatoGemini(nombrePlato: string): Promise<{nombre: string, cantidad: string}[]> {
   const prompt = `Eres un nutricionista experto. Dame la lista de ingredientes necesarios para preparar el siguiente plato: "${nombrePlato}". Devuelve SOLO la lista de ingredientes en formato JSON como un array de objetos, cada uno con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Arroz", "cantidad": "100g"}, ...]). No incluyas explicaciones, solo el array JSON.`;
-  const res = await fetch("http://localhost:3001/api/generate-menu", {
+  const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/generate-menu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prompt })
@@ -124,4 +125,4 @@ export async function getIngredientesPlatoGemini(nombrePlato: string): Promise<{
   } catch {
     throw new Error('No se pudo parsear la respuesta de Gemini para ingredientes');
   }
-} 
+}
