@@ -29,6 +29,8 @@ Planeat es una aplicación web moderna diseñada para ayudarte a planificar tus 
 - Tailwind CSS
 - Supabase
 - SweetAlert2
+- **Vitest** (testing)
+- **Testing Library** (testing)
 
 ## 📦 Instalación
 
@@ -52,6 +54,22 @@ npm install
 npm run dev
 ```
 
+## 🧪 Testing y Calidad
+
+Este proyecto cuenta con una batería de tests automáticos para asegurar la calidad y el correcto funcionamiento de los componentes principales.
+
+### Ejecutar los tests
+
+```bash
+npm test           # Ejecuta los tests en modo watch
+npm run test:ui    # Ejecuta los tests con interfaz visual
+npm run test:coverage  # Ejecuta los tests y muestra la cobertura
+```
+
+- Los tests cubren componentes clave como el menú, la navegación y los spinners de carga.
+- Se utilizan mocks para los contextos y dependencias externas.
+- Se recomienda mantener y ampliar la cobertura de tests a medida que evoluciona el proyecto.
+
 ## 🏗️ Estructura del Proyecto
 
 ```
@@ -62,6 +80,7 @@ src/
 ├── types/          # Definiciones de tipos TypeScript
 ├── utils/          # Utilidades y funciones auxiliares
 ├── api/            # Lógica de integración con Gemini y otras APIs
+├── test/           # Tests automáticos (unitarios y de integración)
 └── config/         # Configuración de Supabase y otros servicios
 public/
 └── logo/Logo.png   # Logo y favicon de Planeat
