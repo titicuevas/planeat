@@ -12,11 +12,11 @@ export default function AuthCallback() {
       let tries = 0;
       let user = null;
       // Esperar hasta que el usuario esté activo o agotar intentos
-      while (tries < 10) {
+      while (tries < 30) {
         const { data } = await supabase.auth.getUser();
         user = data.user;
         if (user) break;
-        await new Promise(res => setTimeout(res, 500));
+        await new Promise(res => setTimeout(res, 700));
         tries++;
       }
       setChecking(false);
