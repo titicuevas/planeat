@@ -1,6 +1,8 @@
 export async function generateMenuWithGemini({ 
   objetivo, 
   intolerancias, 
+  peso,
+  altura,
   promptExtra,
   platoActual,
   dia,
@@ -9,6 +11,8 @@ export async function generateMenuWithGemini({
 }: { 
   objetivo: string, 
   intolerancias: string[], 
+  peso?: number,
+  altura?: number,
   promptExtra?: string,
   platoActual?: string,
   dia?: string,
@@ -20,14 +24,24 @@ export async function generateMenuWithGemini({
     ? `IMPORTANTE: No incluyas ningún plato ni ingrediente que contenga: ${intolerancias.join(', ')}. Si el usuario es intolerante a un alimento, no debe aparecer en ninguna comida bajo ningún concepto.`
     : '';
 
+  const datosUsuario = `${peso ? `Peso: ${peso} kg. ` : ''}${altura ? `Altura: ${altura} cm. ` : ''}`;
+
+  // Calcular requerimientos estándar
+  let requerimientos = '';
+  if (peso) {
+    const proteinas = (peso * 1.8).toFixed(0); // gramos/día
+    const grasas = (peso * 1).toFixed(0); // gramos/día
+    requerimientos = `El usuario necesita aproximadamente ${proteinas}g de proteínas y ${grasas}g de grasas al día. El resto de calorías deben venir de carbohidratos. Ajusta las cantidades y los platos para que el menú semanal se aproxime a estos valores, adaptando las porciones a su peso y objetivo.`;
+  }
+
   if (platoActual && dia && tipo) {
-    prompt = `Eres un nutricionista experto. Necesito una alternativa para el siguiente plato que contiene ingredientes no aptos para el usuario:\nPlato actual: "${platoActual}"\nDía: ${dia}\nTipo de comida: ${tipo}\nObjetivo del usuario: "${objetivo}"\n${intoleranciasTexto}\n\nPor favor, sugiere una alternativa saludable y deliciosa que:\n1. No contenga ninguno de los ingredientes no aptos\n2. Sea compatible con el objetivo del usuario\n3. Sea fácil de preparar\n4. Sea similar en tipo de comida (por ejemplo, si es un plato principal, sugiere otro plato principal)\n\nDevuelve SOLO el nombre del plato alternativo, sin explicaciones adicionales.`;
+    prompt = `Eres un nutricionista experto. Necesito una alternativa para el siguiente plato que contiene ingredientes no aptos para el usuario:\nPlato actual: "${platoActual}"\nDía: ${dia}\nTipo de comida: ${tipo}\nObjetivo del usuario: "${objetivo}"\n${datosUsuario}${intoleranciasTexto}\n${requerimientos}\n\nPor favor, sugiere una alternativa saludable y deliciosa que:\n1. No contenga ninguno de los ingredientes no aptos\n2. Sea compatible con el objetivo del usuario\n3. Sea fácil de preparar\n4. Sea similar en tipo de comida (por ejemplo, si es un plato principal, sugiere otro plato principal)\n\nDevuelve SOLO el nombre del plato alternativo, sin explicaciones adicionales.`;
   } else {
     let diasTexto = '';
     if (diasRestantes && diasRestantes.length > 0) {
       diasTexto = `\n- SOLO genera el menú para los siguientes días: ${diasRestantes.join(', ')}. Usa estos días como claves en el JSON.`;
     }
-    prompt = `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona.\n\nOBJETIVO DEL USUARIO: ${objetivo}\n\nIMPORTANTE: No incluyas ningún plato ni ingrediente que contenga: ${intolerancias.length > 0 ? intolerancias.join(', ') : 'ninguna intolerancia'}. Si el usuario es intolerante a un alimento, no debe aparecer en ninguna comida bajo ningún concepto.\n\nREQUISITOS:\n- Devuelve SOLO un JSON válido, sin explicaciones ni texto fuera del JSON.\n- El JSON debe tener los días de la semana en minúscula como claves ("lunes", "martes", ...).${diasTexto}\n- Para cada día, incluye los campos: "Desayuno", "Comida", "Cena", "Snack mañana", "Snack tarde".\n- Ejemplo de formato:\n{\n  "lunes": { "Desayuno": "Avena con frutas", "Comida": "Ensalada de pollo", "Cena": "Sopa de verduras", "Snack mañana": "Fruta fresca", "Snack tarde": "Yogur vegetal" },\n  ...\n}\n- No incluyas explicaciones, solo el JSON.`;
+    prompt = `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona.\n\nOBJETIVO DEL USUARIO: ${objetivo}\n${datosUsuario}\n${requerimientos}\nIMPORTANTE: No incluyas ningún plato ni ingrediente que contenga: ${intolerancias.length > 0 ? intolerancias.join(', ') : 'ninguna intolerancia'}. Si el usuario es intolerante a un alimento, no debe aparecer en ninguna comida bajo ningún concepto.\n\nREQUISITOS:\n- Devuelve SOLO un JSON válido, sin explicaciones ni texto fuera del JSON.\n- El JSON debe tener los días de la semana en minúscula como claves ("lunes", "martes", ...).${diasTexto}\n- Para cada día, incluye los campos: "Desayuno", "Comida", "Cena", "Snack mañana", "Snack tarde".\n- Ejemplo de formato:\n{\n  "lunes": { "Desayuno": "Avena con frutas", "Comida": "Ensalada de pollo", "Cena": "Sopa de verduras", "Snack mañana": "Fruta fresca", "Snack tarde": "Yogur vegetal" },\n  ...\n}\n- No incluyas explicaciones, solo el JSON.`;
   }
 
   const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';

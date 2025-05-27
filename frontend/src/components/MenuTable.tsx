@@ -78,7 +78,6 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
         cancelButtonText: 'No',
         confirmButtonColor: '#22c55e',
       });
-      
       if (result.isConfirmed) {
         const nuevoMenu = { ...menuLocal };
         if (!nuevoMenu[dia]) {
@@ -93,6 +92,7 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
         nuevoMenu[dia] = { ...nuevoMenu[dia], [tipo]: alternativa };
         setMenuLocal(nuevoMenu);
       }
+      // Si no confirma, no se cambia nada
     } catch (err) {
       Swal.fire('Error', 'No se pudo sugerir alternativa', 'error');
     } finally {

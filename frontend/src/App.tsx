@@ -148,9 +148,7 @@ function AppContent() {
     };
     if (session) {
       fetchProfile();
-      window.addEventListener('focus', fetchProfile);
       return () => {
-        window.removeEventListener('focus', fetchProfile);
         if (retryTimeout) clearTimeout(retryTimeout);
       };
     } else {

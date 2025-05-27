@@ -265,7 +265,7 @@ const INGREDIENTES_IGNORAR = [
 ];
 
 // Unificación de nombres de ingredientes similares
-function unificarNombreIngrediente(nombre: string): string {
+export function unificarNombreIngrediente(nombre: string): string {
   let n = nombre.toLowerCase().trim();
   if (n.includes('leche vegetal')) return 'Leche vegetal';
   if (n.includes('frutos rojos congelados')) return 'Frutos rojos congelados';

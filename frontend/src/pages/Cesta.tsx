@@ -124,18 +124,15 @@ export default function Cesta({ session, profile }: { session: Session, profile:
   const groupedIngredients = React.useMemo(() => {
     const map = new Map<string, { cantidades: Record<string, number>, otros: string[], checked: {id: string, checked: boolean}[] }>();
     ingredients.forEach(item => {
-      const nombre = item.nombre;
+      // Unificar nombres y filtrar poco útiles
+      const nombre = unificarNombreIngrediente(item.nombre);
+      if (['agua', 'sal', 'pimienta', 'hielo', 'especias', 'vinagre', 'sirope', 'opcional', 'caldo', 'zumo', 'bebida', 'aroma', 'extracto', 'decoración', 'aderezo', 'condimento', 'azúcar', 'edulcorante', 'stevia', 'colorante', 'levadura', 'bicarbonato', 'vainilla', 'limón (opcional)', 'zumo de limón (opcional)'].some(i => nombre.toLowerCase().includes(i))) return;
       const cantidad = item.cantidad || '';
-      // Filtrar ingredientes con cantidades ignoradas
-      const cantidadLower = cantidad.toLowerCase().trim();
-      if (CANTIDADES_IGNORADAS.some(palabra => cantidadLower.includes(palabra))) {
-        return; // No añadir este ingrediente
-      }
       if (!map.has(nombre)) {
         map.set(nombre, { cantidades: {}, otros: [], checked: [] });
       }
       // Intentar extraer valor y unidad
-      const match = cantidad.match(/^\s*([\d,.]+)\s*([\wáéíóúüñ%]+)?/i);
+      const match = cantidad.match(/^(\d+(?:[\.,]\d+)?)\s*([\wáéíóúüñ%]+)?/i);
       if (match && match[1]) {
         const valor = parseFloat(match[1].replace(',', '.'));
         const unidad = (match[2] || '').trim();
@@ -154,20 +151,28 @@ export default function Cesta({ session, profile }: { session: Session, profile:
     return Array.from(map.entries()).map(([nombre, { cantidades, otros, checked }]) => {
       // Construir string de cantidades sumadas por unidad
       const cantidadesStr = Object.entries(cantidades)
-        .map(([unidad, total]) => `${total % 1 === 0 ? total : total.toFixed(2)}${unidad ? ' ' + unidad : ''}`)
+        .map(([unidad, total]) => {
+          // Redondear cantidades pequeñas
+          if (unidad === 'g' && total < 20) return '1 puñado';
+          if (unidad === 'ml' && total < 20) return '1 cda';
+          if (unidad === 'un' && total < 1) return '1 unidad';
+          return `${total % 1 === 0 ? total : total.toFixed(2)}${unidad ? ' ' + unidad : ''}`;
+        })
         .join(' + ');
       // Añadir los textos no sumables
       const otrosStr = otros.filter(Boolean).join(' + ');
-      const cantidadFinal = [cantidadesStr, otrosStr].filter(Boolean).join(' + ');
       return {
         nombre,
-        cantidad: cantidadesStr,
-        otros: otros,
+        cantidad: [cantidadesStr, otrosStr].filter(Boolean).join(' + '),
         checked: checked.every(c => c.checked),
         ids: checked.map(c => c.id),
       };
     });
   }, [ingredients]);
+
+  // Opción para ocultar ingredientes marcados como "ya tengo"
+  const [ocultarMarcados, setOcultarMarcados] = useState(false);
+  const ingredientesAMostrar = ocultarMarcados ? groupedIngredients.filter(i => !i.checked) : groupedIngredients;
 
   // Marcar/desmarcar todos los ingredientes individuales de un grupo
   const handleToggleGroup = async (ids: string[], checked: boolean) => {
@@ -333,14 +338,20 @@ export default function Cesta({ session, profile }: { session: Session, profile:
           >
             Lista de la compra completa
           </button>
+          <button
+            className="ml-4 bg-gray-200 dark:bg-secondary-700 text-secondary-800 dark:text-secondary-200 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-secondary-600 font-semibold transition-colors w-full sm:w-auto shadow-lg"
+            onClick={() => setOcultarMarcados(v => !v)}
+          >
+            {ocultarMarcados ? 'Mostrar todo' : 'Ocultar marcados'}
+          </button>
         </div>
         {/* Ingredientes agrupados por tipo */}
         <div className="overflow-x-auto">
           <div className="divide-y divide-green-200 dark:divide-secondary-700 mt-6">
-            {Object.entries(ingredientesPorTipo).map(([tipo, items]) => (
-              <div key={tipo} className="py-4">
+            {ingredientesAMostrar.map(item => (
+              <div key={item.nombre} className="py-4">
                 <h2 className="text-xl font-bold text-green-700 dark:text-green-400 mb-2 border-b border-green-200 dark:border-secondary-700 pb-1">
-                  {tipo}
+                  {item.nombre}
                 </h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm mb-2 min-w-[350px]">
@@ -352,15 +363,15 @@ export default function Cesta({ session, profile }: { session: Session, profile:
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map(item => (
-                        <tr key={item.nombre} className={item.checked ? 'opacity-60' : ''}>
-                          <td className={"py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left " + (item.checked ? 'line-through' : '')}>{item.nombre}</td>
-                          <td className={"py-1 text-secondary-700 dark:text-secondary-300 text-right " + (item.checked ? 'line-through' : '')}>{formatCantidad(item.cantidad, item.otros, item.nombre)}</td>
+                      {item.ids.map(id => (
+                        <tr key={id} className={ingredients.find(i => i.id === id)?.checked ? 'opacity-60' : ''}>
+                          <td className={"py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left " + (ingredients.find(i => i.id === id)?.checked ? 'line-through' : '')}>{ingredients.find(i => i.id === id)?.nombre}</td>
+                          <td className={"py-1 text-secondary-700 dark:text-secondary-300 text-right " + (ingredients.find(i => i.id === id)?.checked ? 'line-through' : '')}>{formatCantidad(ingredients.find(i => i.id === id)?.cantidad, ingredients.find(i => i.id === id)?.otros, ingredients.find(i => i.id === id)?.nombre)}</td>
                           <td className="text-center">
                             <input
                               type="checkbox"
-                              checked={item.checked}
-                              onChange={() => handleToggleGroup(item.ids, !item.checked)}
+                              checked={ingredients.find(i => i.id === id)?.checked}
+                              onChange={() => handleToggleGroup([id], !ingredients.find(i => i.id === id)?.checked)}
                               className="accent-green-600 dark:accent-green-500 w-5 h-5 rounded border-gray-300 dark:border-secondary-600 focus:ring-green-500 transition-all"
                             />
                           </td>

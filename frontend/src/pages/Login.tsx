@@ -26,9 +26,6 @@ const Login = () => {
       setIsAuthenticated(!!user);
     };
     checkAuth();
-    // Forzar actualización tras recarga
-    window.addEventListener('focus', checkAuth);
-    return () => window.removeEventListener('focus', checkAuth);
   }, []);
 
   useEffect(() => {

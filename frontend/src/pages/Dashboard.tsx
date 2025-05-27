@@ -23,6 +23,8 @@ interface Profile {
   avatar_url?: string | null
   goal?: string | null
   intolerances?: string[] | null
+  weight?: number | null
+  height?: number | null
 }
 
 export default function Dashboard({ session, profile, setGenerandoCesta, handleLogout }: { session: Session, profile: any, setGenerandoCesta?: (v: boolean) => void, handleLogout?: () => Promise<void> }) {
@@ -154,6 +156,8 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
       const alternativa = await generateMenuWithGemini({
         objetivo: profile?.goal || '',
         intolerancias: profile?.intolerances || [],
+        peso: profile?.weight,
+        altura: profile?.height,
         platoActual,
         dia,
         tipo: String(tipo)
@@ -195,6 +199,26 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
   // Detectar si el plan es de la próxima semana
   const isNextWeekPlan = currentWeekPlan && new Date(currentWeekPlan.week) > getBaseMondayForDisplay();
 
+  // Calcular requerimientos diarios estimados
+  let requerimientos = null;
+  if (profile?.weight) {
+    const peso = profile.weight;
+    const proteinas = (peso * 1.8).toFixed(0);
+    const grasas = (peso * 1).toFixed(0);
+    // Calorías estimadas: proteínas y grasas (4 y 9 kcal/g), resto carbohidratos (4 kcal/g, estimación simple)
+    const kcalProteinas = Number(proteinas) * 4;
+    const kcalGrasas = Number(grasas) * 9;
+    const kcalTotales = (peso * 30).toFixed(0); // Estimación simple: 30 kcal/kg
+    const kcalCarbos = Number(kcalTotales) - kcalProteinas - kcalGrasas;
+    const carbos = (kcalCarbos / 4).toFixed(0);
+    requerimientos = {
+      proteinas,
+      grasas,
+      carbos,
+      kcal: kcalTotales
+    };
+  }
+
   if (showLoader) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-secondary-900">
@@ -225,7 +249,22 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
         {/* Bloque de datos del usuario centrado */}
         <div className="w-full max-w-2xl mx-auto flex flex-col items-center mb-6">
           {profile ? (
-            <ProfileInfo profile={profile} onLogout={logout} />
+            <>
+              <ProfileInfo profile={profile} onLogout={logout} />
+              {requerimientos && (
+                <div className="mb-4 w-full flex flex-col items-center">
+                  <div className="bg-green-100 dark:bg-secondary-800 border border-green-200 dark:border-secondary-700 rounded-lg p-4 w-full max-w-md text-center">
+                    <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">Requerimientos diarios estimados</h3>
+                    <div className="flex flex-wrap gap-4 justify-center items-center text-secondary-800 dark:text-secondary-200">
+                      <span>🔥 <b>{requerimientos.kcal}</b> kcal</span>
+                      <span>🍗 <b>{requerimientos.proteinas}</b> g proteínas</span>
+                      <span>🥑 <b>{requerimientos.grasas}</b> g grasas</span>
+                      <span>🥖 <b>{requerimientos.carbos}</b> g carbohidratos</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="min-h-screen flex items-center justify-center">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>

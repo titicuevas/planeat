@@ -9,6 +9,8 @@ interface Profile {
   avatar_url?: string | null;
   goal?: string | null;
   intolerances?: string[] | null;
+  weight?: number | null;
+  height?: number | null;
 }
 
 interface ProfileInfoProps {
@@ -61,6 +63,13 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile, onLogout }) => {
           {profile.goal && (
             <p className="mt-2 text-sm text-secondary-700 dark:text-secondary-300">
               Objetivo: {profile.goal}
+            </p>
+          )}
+          {(profile.weight || profile.height) && (
+            <p className="mt-1 text-sm text-secondary-700 dark:text-secondary-300">
+              {profile.weight ? `Peso: ${profile.weight} kg` : ''}
+              {profile.weight && profile.height ? ' · ' : ''}
+              {profile.height ? `Altura: ${profile.height} cm` : ''}
             </p>
           )}
           {profile.intolerances && profile.intolerances.length > 0 && (

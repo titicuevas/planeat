@@ -29,6 +29,8 @@ export default function ProfileSetup({ session }: { session: Session }) {
   const [objetivo, setObjetivo] = useState('');
   const [intolerancias, setIntolerancias] = useState<string[]>([]);
   const [nombre, setNombre] = useState('');
+  const [peso, setPeso] = useState<string>('');
+  const [altura, setAltura] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showNoUserMsg, setShowNoUserMsg] = useState(false);
@@ -39,7 +41,7 @@ export default function ProfileSetup({ session }: { session: Session }) {
     const fetchProfile = async () => {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, goal, intolerances')
+        .select('name, goal, intolerances, weight, height')
         .eq('id', session.user.id)
         .maybeSingle();
       
@@ -47,6 +49,8 @@ export default function ProfileSetup({ session }: { session: Session }) {
         setNombre(profile.name || '');
         setObjetivo(profile.goal || '');
         setIntolerancias(profile.intolerances || []);
+        setPeso(profile.weight?.toString() || '');
+        setAltura(profile.height?.toString() || '');
         
         // Verificar si el perfil está completo
         const isComplete = profile.name && profile.goal && profile.intolerances && profile.intolerances.length > 0;
@@ -78,6 +82,16 @@ export default function ProfileSetup({ session }: { session: Session }) {
     }
   };
 
+  const validateWeight = (value: string): boolean => {
+    const num = parseFloat(value);
+    return !isNaN(num) && num > 0 && num <= 500 && value.length <= 5; // Permitir hasta 3 decimales
+  };
+
+  const validateHeight = (value: string): boolean => {
+    const num = parseInt(value);
+    return !isNaN(num) && num > 0 && num <= 250;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -93,6 +107,14 @@ export default function ProfileSetup({ session }: { session: Session }) {
     }
     if (intolerancias.length === 0) {
       setError('Por favor, selecciona al menos una intolerancia o "Ninguna".');
+      return;
+    }
+    if (peso && !validateWeight(peso)) {
+      setError('El peso debe ser un número entre 0 y 500 kg.');
+      return;
+    }
+    if (altura && !validateHeight(altura)) {
+      setError('La altura debe ser un número entre 0 y 250 cm.');
       return;
     }
 
@@ -111,7 +133,9 @@ export default function ProfileSetup({ session }: { session: Session }) {
           name: nombre,
           goal: objetivo,
           intolerances: intolerancias,
-          email: session.user.email
+          email: session.user.email,
+          weight: peso ? parseFloat(peso) : null,
+          height: altura ? parseInt(altura) : null
         });
 
       if (error) {
@@ -152,6 +176,36 @@ export default function ProfileSetup({ session }: { session: Session }) {
               disabled={loading}
               placeholder="Tu nombre"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-secondary-900 dark:text-secondary-100 mb-1">Peso (kg)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="500"
+                className="w-full border border-gray-300 dark:border-secondary-600 rounded-lg px-4 py-3 bg-white dark:bg-secondary-900 text-secondary-900 dark:text-secondary-100 placeholder-gray-400 dark:placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm transition-colors"
+                value={peso}
+                onChange={e => setPeso(e.target.value)}
+                disabled={loading}
+                placeholder="Ej: 70.5"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-900 dark:text-secondary-100 mb-1">Altura (cm)</label>
+              <input
+                type="number"
+                min="0"
+                max="250"
+                className="w-full border border-gray-300 dark:border-secondary-600 rounded-lg px-4 py-3 bg-white dark:bg-secondary-900 text-secondary-900 dark:text-secondary-100 placeholder-gray-400 dark:placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm transition-colors"
+                value={altura}
+                onChange={e => setAltura(e.target.value)}
+                disabled={loading}
+                placeholder="Ej: 175"
+              />
+            </div>
           </div>
           
           <div>
