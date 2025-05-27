@@ -70,11 +70,8 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
         const diaSemana = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=lunes, 6=domingo
         const WEEK_DAYS = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
         let diasRestantes: string[] = [];
-        if (diaSemana > 0) {
-          diasRestantes = WEEK_DAYS.slice(diaSemana);
-        } else {
-          diasRestantes = WEEK_DAYS;
-        }
+        // Siempre incluir el día actual y los siguientes hasta el domingo
+        diasRestantes = WEEK_DAYS.slice(diaSemana);
         let menuRaw = await generateMenuWithGemini({
           objetivo: profile.goal || '',
           intolerancias: profile.intolerances || [],
