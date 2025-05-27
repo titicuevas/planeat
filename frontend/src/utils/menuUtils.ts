@@ -267,20 +267,45 @@ const INGREDIENTES_IGNORAR = [
 // Unificación de nombres de ingredientes similares
 export function unificarNombreIngrediente(nombre: string): string {
   let n = nombre.toLowerCase().trim();
-  if (n.includes('leche vegetal')) return 'Leche vegetal';
-  if (n.includes('frutos rojos congelados')) return 'Frutos rojos congelados';
-  if (n.includes('proteína vegana')) return 'Proteína vegana en polvo';
-  if (n.includes('salmón fresco')) return 'Salmón fresco';
-  if (n.includes('semillas de calabaza')) return 'Semillas de calabaza';
-  if (n.includes('limón')) return 'Limón';
-  if (n.includes('cebolla')) return 'Cebolla';
+  // Aceite de oliva y variantes
+  if (n.includes('aceite de oliva')) return 'Aceite de oliva';
+  if (n.includes('aceite') && n.includes('virgen')) return 'Aceite de oliva';
+  // Frutos rojos congelados y variantes
+  if (n.includes('frutos rojos')) return 'Frutos rojos congelados';
+  // Almendras y mantequilla de almendras
+  if (n.includes('mantequilla de almendras')) return 'Mantequilla de almendras';
+  if (n.includes('almendra')) return 'Almendras';
+  // Calabaza
   if (n.includes('calabaza')) return 'Calabaza';
-  if (n.includes('espárragos')) return 'Espárragos frescos';
-  if (n.includes('crema de cacahuete')) return 'Crema de cacahuete natural';
-  if (n.includes('tofu')) return 'Tofu firme';
-  if (n.includes('salsa de soja')) return 'Salsa de soja';
+  // Cebolla
+  if (n.includes('cebolla')) return 'Cebolla';
+  // Espárragos
+  if (n.includes('espárrago')) return 'Espárragos frescos';
+  // Leche vegetal y variantes
+  if (n.includes('leche vegetal')) return 'Leche vegetal';
+  // Limón
+  if (n.includes('limón')) return 'Limón';
+  // Proteína vegetal en polvo
+  if (n.includes('proteína vegetal')) return 'Proteína vegetal en polvo';
+  // Semillas de calabaza
+  if (n.includes('semillas de calabaza')) return 'Semillas de calabaza';
+  // Semillas de chía
+  if (n.includes('chía')) return 'Semillas de chía';
+  // Quinoa
+  if (n.includes('quinoa')) return 'Quinoa';
+  // Jengibre
+  if (n.includes('jengibre')) return 'Jengibre fresco';
+  // Manzana
   if (n.includes('manzana')) return 'Manzana';
-  // Añade más reglas según necesidades
+  // Puerro
+  if (n.includes('puerro')) return 'Puerro';
+  // Hierbas frescas
+  if (n.includes('hierbas frescas')) return 'Hierbas frescas';
+  // Perejil
+  if (n.includes('perejil')) return 'Perejil';
+  // Ajo
+  if (n.includes('ajo')) return 'Ajo';
+  // Otros casos genéricos
   return nombre.trim();
 }
 

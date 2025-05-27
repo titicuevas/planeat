@@ -149,7 +149,7 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
     }
   }
 
-  const handleSuggestAlternativeTable = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
+  const handleSuggestAlternativeTable = async (dia: string, tipo: keyof DiaComidas, platoActual: string): Promise<string> => {
     try {
       setLoadingAlternative({ dia, tipo: String(tipo) })
       showToast('success', 'Buscando alternativa...')
@@ -162,14 +162,26 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
         dia,
         tipo: String(tipo)
       })
-      if (currentWeekPlan) {
+      // Confirmación antes de cambiar el plato
+      const result = await Swal.fire({
+        title: '¿Quieres cambiar el plato?',
+        text: `Sugerencia: ${alternativa}`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cambiar',
+        cancelButtonText: 'No',
+        confirmButtonColor: '#22c55e',
+      });
+      if (result.isConfirmed && currentWeekPlan) {
         const nuevoMenu = { ...currentWeekPlan.meals };
         (nuevoMenu[dia] as any)[String(tipo)] = alternativa;
         await updatePlan(currentWeekPlan.id, { meals: nuevoMenu });
         setMenuDetail(nuevoMenu as Record<string, DiaComidas>);
         showToast('success', '¡Alternativa sugerida!')
+        return alternativa;
       }
-      return alternativa;
+      // Si no confirma, no cambiar el plato
+      return platoActual;
     } catch (err: any) {
       console.error('Error al sugerir alternativa:', err)
       showToast('error', 'No se pudo sugerir alternativa')
@@ -297,7 +309,7 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
               )}
               {!puedeCrearMenuProximaSemana() && (
                 <span className="text-xs text-secondary-500 dark:text-secondary-300 mt-1 block">
-                  Podrás crear el próximo menú a partir del: <b>{format(getNextSaturday(), 'PPPPp', { locale: es })}</b>
+                  Podrás crear el próximo menú a partir del: <b>{format(getNextSaturday(), 'dd/MM/yyyy')}</b>
                 </span>
               )}
             </div>

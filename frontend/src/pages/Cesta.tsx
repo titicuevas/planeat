@@ -367,7 +367,7 @@ export default function Cesta({ session, profile }: { session: Session, profile:
                       {item.ids.map(id => (
                         <tr key={id} className={ingredients.find(i => i.id === id)?.checked ? 'opacity-60' : ''}>
                           <td className={"py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left " + (ingredients.find(i => i.id === id)?.checked ? 'line-through' : '')}>{ingredients.find(i => i.id === id)?.nombre}</td>
-                          <td className={"py-1 text-secondary-700 dark:text-secondary-300 text-right " + (ingredients.find(i => i.id === id)?.checked ? 'line-through' : '')}>{formatCantidad(ingredients.find(i => i.id === id)?.cantidad, ingredients.find(i => i.id === id)?.otros, ingredients.find(i => i.id === id)?.nombre)}</td>
+                          <td className={"py-1 text-secondary-700 dark:text-secondary-300 text-right " + (ingredients.find(i => i.id === id)?.checked ? 'line-through' : '')}>{formatCantidad(ingredients.find(i => i.id === id)?.cantidad, [], ingredients.find(i => i.id === id)?.nombre)}</td>
                           <td className="text-center">
                             <input
                               type="checkbox"
