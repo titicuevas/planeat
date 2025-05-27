@@ -62,7 +62,17 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      navigate('/inicio', { replace: true });
+      // Comprobar perfil tras login
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name, goal, intolerances, weight, height')
+        .eq('id', data.session.user.id)
+        .maybeSingle();
+      if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0 || !profile.weight || !profile.height) {
+        navigate('/perfil', { replace: true });
+      } else {
+        navigate('/inicio', { replace: true });
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Error al iniciar sesión');
     } finally {

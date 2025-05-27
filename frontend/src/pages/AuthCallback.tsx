@@ -27,13 +27,13 @@ export default function AuthCallback() {
           if (!user) throw new Error('No se pudo obtener el usuario tras el login');
           const { data: profile } = await supabase
             .from('profiles')
-            .select('name, goal, intolerances')
+            .select('name, goal, intolerances, weight, height')
             .eq('id', user.id)
             .maybeSingle();
-          if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
+          if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0 || !profile.weight || !profile.height) {
             navigate('/perfil', { replace: true });
           } else {
-            navigate('/dashboard', { replace: true });
+            navigate('/inicio', { replace: true });
           }
         } catch (err) {
           console.error('Error al activar la sesión:', err);
