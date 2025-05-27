@@ -160,7 +160,7 @@ function AppContent() {
   useEffect(() => {
     if (!showGlobalLoader && sessionChecked && profileLoaded && !loadingProfile) {
       // Si no hay sesión y no estamos en welcome/login/register, redirigir a welcome
-      if (!session && !['/', '/login', '/register'].includes(location.pathname)) {
+      if (!session && !['/', '/login', '/register', '/forgot-password', '/reset-password-sent'].includes(location.pathname)) {
         if (location.pathname !== '/') navigate('/', { replace: true });
         return;
       }
