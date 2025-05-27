@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard'
 import Cesta from './pages/Cesta'
 import AuthCallback from './pages/AuthCallback'
 import Receta from './pages/Receta'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPasswordSent from './pages/ResetPasswordSent'
 import { AppProvider, useApp } from './context/AppContext'
 import LoadingSpinner from './components/LoadingSpinner'
 import ThemeToggle from './components/ThemeToggle'
@@ -198,6 +200,8 @@ function AppContent() {
           <Route index element={<Welcome />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
+          <Route path="reset-password-sent" element={<ResetPasswordSent />} />
           <Route path="inicio" element={session && profileLoaded ? <Dashboard session={session} profile={profile} setGenerandoCesta={setGenerandoCesta} handleLogout={handleLogout} /> : <Navigate to="/" replace />} />
           <Route path="cesta" element={session && profileLoaded ? <Cesta session={session} profile={profile} /> : <Navigate to="/" replace />} />
           <Route path="receta/:recetaId" element={<Receta />} />
