@@ -118,6 +118,15 @@ const Register = () => {
         setLoading(false);
         return;
       }
+      if (data?.user) {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          email: formData.email,
+          name: '',
+          goal: '',
+          intolerances: []
+        });
+      }
       setShowVerifyMsg(true);
       setLoading(false);
     } catch (err: any) {
