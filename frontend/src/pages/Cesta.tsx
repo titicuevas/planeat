@@ -156,6 +156,21 @@ export default function Cesta({ session, profile }: { session: Session, profile:
     return grupos;
   }, [groupedIngredients]);
 
+  // Determinar si todos los ingredientes están marcados
+  const allChecked = groupedIngredients.length > 0 && groupedIngredients.every(item => {
+    return ingredients.find(i => unificarNombreIngrediente(i.nombre) === unificarNombreIngrediente(item.nombre))?.checked;
+  });
+
+  // Función para marcar o desmarcar todos
+  async function handleCheckAll(checked: boolean) {
+    // Buscar todos los ids
+    const ids = ingredients.map(i => i.id);
+    await Promise.all(ids.map(id =>
+      supabase.from('shopping_list').update({ checked }).eq('id', id)
+    ));
+    setIngredients(prev => prev.map(i => ({ ...i, checked })));
+  }
+
   // Función para actualizar el estado checked en Supabase y local
   async function handleCheck(nombre: string, checked: boolean) {
     // Buscar todos los ingredientes con ese nombre (puede haber varios ids)
@@ -190,11 +205,14 @@ export default function Cesta({ session, profile }: { session: Session, profile:
         <h1 className="text-3xl font-bold text-green-700 dark:text-green-400 mb-4 text-center flex items-center gap-2 justify-center">
           <span role="img" aria-label="carrito">🛒</span> Cesta de la compra
         </h1>
-        <p className="mb-6 text-secondary-700 dark:text-secondary-200 text-center">
-          Aquí verás la lista de ingredientes necesarios para preparar todas las comidas de tu menú semanal. Marca los ingredientes que ya tienes para organizar mejor tu compra.
-        </p>
-        <div className="bg-green-50 dark:bg-secondary-900 border border-green-200 dark:border-secondary-700 rounded-lg p-4 text-center text-green-800 dark:text-green-200 mb-4 font-semibold">
-          Próximamente: checklist de ingredientes, descarga en PDF y envío por email.
+        {/* Botón para marcar/desmarcar todos */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => handleCheckAll(!allChecked)}
+            className={`px-4 py-2 rounded font-semibold shadow transition-colors text-white ${allChecked ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'}`}
+          >
+            {allChecked ? 'Desmarcar todo' : 'Marcar todo'}
+          </button>
         </div>
         {/* Mostrar la lista agrupada y sumada de ingredientes por categoría con checklist */}
         <div className="overflow-x-auto">
@@ -240,14 +258,17 @@ export default function Cesta({ session, profile }: { session: Session, profile:
           </div>
         </div>
       </div>
-      {showConfetti && <ReactConfetti width={window.innerWidth} height={window.innerHeight} numberOfPieces={250} recycle={false} />}
-      {showCongrats && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-lg p-8 flex flex-col items-center border-2 border-green-400 dark:border-green-600">
-            <span className="text-2xl font-bold text-green-700 dark:text-green-400 mb-2">¡Compra completada!</span>
-            <span className="text-lg text-green-600 dark:text-green-300">Disfruta de tus menús 🎉</span>
+      {/* Confeti y mensaje solo si todo está marcado */}
+      {allChecked && (
+        <>
+          <ReactConfetti width={window.innerWidth} height={window.innerHeight} numberOfPieces={250} recycle={false} />
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-lg p-8 flex flex-col items-center border-2 border-green-400 dark:border-green-600">
+              <span className="text-2xl font-bold text-green-700 dark:text-green-400 mb-2">¡Compra completada!</span>
+              <span className="text-lg text-green-600 dark:text-green-300">Disfruta de tus menús 🎉</span>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
