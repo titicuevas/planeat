@@ -108,7 +108,7 @@ function AppContent() {
         setLoadingProfile(true);
         const { data, error } = await supabase
           .from('profiles')
-          .select('name, goal, intolerances')
+          .select('name, goal, intolerances, weight, height')
           .eq('id', session.user.id)
           .maybeSingle();
         if (data) {

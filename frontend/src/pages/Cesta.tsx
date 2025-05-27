@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import ReactConfetti from 'react-confetti';
 import type { Session } from '@supabase/supabase-js';
+import { unificarNombreIngrediente } from '../utils/menuUtils';
 
 export default function Cesta({ session, profile }: { session: Session, profile: any }) {
   const navigate = useNavigate();

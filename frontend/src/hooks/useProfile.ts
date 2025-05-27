@@ -23,7 +23,7 @@ export function useProfile(session: Session | null) {
 
         let { data: profileData, error } = await supabase
           .from('profiles')
-          .select('*')
+          .select('*, weight, height')
           .eq('id', user.id)
           .maybeSingle();
 

@@ -65,13 +65,13 @@ const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile, onLogout }) => {
               Objetivo: {profile.goal}
             </p>
           )}
-          {(profile.weight || profile.height) && (
+          {(profile.weight !== undefined && profile.weight !== null) || (profile.height !== undefined && profile.height !== null) ? (
             <p className="mt-1 text-sm text-secondary-700 dark:text-secondary-300">
-              {profile.weight ? `Peso: ${profile.weight} kg` : ''}
-              {profile.weight && profile.height ? ' · ' : ''}
-              {profile.height ? `Altura: ${profile.height} cm` : ''}
+              {profile.weight !== undefined && profile.weight !== null ? `Peso: ${profile.weight} kg` : ''}
+              {profile.weight !== undefined && profile.weight !== null && profile.height !== undefined && profile.height !== null ? ' · ' : ''}
+              {profile.height !== undefined && profile.height !== null ? `Altura: ${profile.height} cm` : ''}
             </p>
-          )}
+          ) : null}
           {profile.intolerances && profile.intolerances.length > 0 && (
             <p className="mt-1 text-sm text-secondary-700 dark:text-secondary-300">
               Intolerancias: {profile.intolerances.join(', ')}

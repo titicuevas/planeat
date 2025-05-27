@@ -201,7 +201,7 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
 
   // Calcular requerimientos diarios estimados
   let requerimientos = null;
-  if (profile?.weight) {
+  if (profile?.weight && profile.weight > 0) {
     const peso = profile.weight;
     const proteinas = (peso * 1.8).toFixed(0);
     const grasas = (peso * 1).toFixed(0);
