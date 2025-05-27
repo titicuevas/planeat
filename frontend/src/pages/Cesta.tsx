@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 import ReactConfetti from 'react-confetti';
 import type { Session } from '@supabase/supabase-js';
-import { unificarNombreIngrediente, formatCantidadCompra } from '../utils/menuUtils';
+import { unificarNombreIngrediente, formatCantidadCompra, agruparIngredientesHumanizado } from '../utils/menuUtils';
 
 export default function Cesta({ session, profile }: { session: Session, profile: any }) {
   const navigate = useNavigate();
@@ -121,154 +121,11 @@ export default function Cesta({ session, profile }: { session: Session, profile:
     navigate('/inicio');
   };
 
-  // Agrupar ingredientes por nombre y sumar cantidades si es posible
-  const groupedIngredients = React.useMemo(() => {
-    const map = new Map<string, { cantidades: Record<string, number>, otros: string[], checked: {id: string, checked: boolean}[] }>();
-    ingredients.forEach(item => {
-      // Unificar nombres y filtrar poco útiles
-      const nombre = unificarNombreIngrediente(item.nombre);
-      if (['agua', 'sal', 'pimienta', 'hielo', 'especias', 'vinagre', 'sirope', 'opcional', 'caldo', 'zumo', 'bebida', 'aroma', 'extracto', 'decoración', 'aderezo', 'condimento', 'azúcar', 'edulcorante', 'stevia', 'colorante', 'levadura', 'bicarbonato', 'vainilla', 'limón (opcional)', 'zumo de limón (opcional)'].some(i => nombre.toLowerCase().includes(i))) return;
-      const cantidad = item.cantidad || '';
-      if (!map.has(nombre)) {
-        map.set(nombre, { cantidades: {}, otros: [], checked: [] });
-      }
-      // Intentar extraer valor y unidad
-      const match = cantidad.match(/^(\d+(?:[\.,]\d+)?)\s*([\wáéíóúüñ%]+)?/i);
-      if (match && match[1]) {
-        const valor = parseFloat(match[1].replace(',', '.'));
-        const unidad = (match[2] || '').trim();
-        if (!isNaN(valor) && unidad) {
-          map.get(nombre)!.cantidades[unidad] = (map.get(nombre)!.cantidades[unidad] || 0) + valor;
-        } else if (!isNaN(valor) && !unidad) {
-          map.get(nombre)!.cantidades[''] = (map.get(nombre)!.cantidades[''] || 0) + valor;
-        } else {
-          map.get(nombre)!.otros.push(cantidad);
-        }
-      } else if (cantidad && cantidad.trim() !== '') {
-        map.get(nombre)!.otros.push(cantidad);
-      }
-      map.get(nombre)!.checked.push({id: item.id, checked: item.checked});
-    });
-    return Array.from(map.entries()).map(([nombre, { cantidades, otros, checked }]) => {
-      // Construir string de cantidades sumadas por unidad
-      const cantidadesStr = Object.entries(cantidades)
-        .map(([unidad, total]) => {
-          // Redondear cantidades pequeñas
-          if (unidad === 'g' && total < 20) return '1 puñado';
-          if (unidad === 'ml' && total < 20) return '1 cda';
-          if (unidad === 'un' && total < 1) return '1 unidad';
-          return `${total % 1 === 0 ? total : total.toFixed(2)}${unidad ? ' ' + unidad : ''}`;
-        })
-        .join(' + ');
-      // Añadir los textos no sumables
-      const otrosStr = otros.filter(Boolean).join(' + ');
-      return {
-        nombre,
-        cantidad: [cantidadesStr, otrosStr].filter(Boolean).join(' + '),
-        checked: checked.every(c => c.checked),
-        ids: checked.map(c => c.id),
-      };
-    });
-  }, [ingredients]);
-
-  // Opción para ocultar ingredientes marcados como "ya tengo"
-  const [ocultarMarcados, setOcultarMarcados] = useState(false);
-  const ingredientesAMostrar = ocultarMarcados ? groupedIngredients.filter(i => !i.checked) : groupedIngredients;
-
-  // Marcar/desmarcar todos los ingredientes individuales de un grupo
-  const handleToggleGroup = async (ids: string[], checked: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('shopping_list')
-        .update({ checked })
-        .in('id', ids);
-      if (error) throw error;
-      setIngredients(prev => prev.map(item => ids.includes(item.id) ? { ...item, checked } : item));
-    } catch (err) {
-      console.error('Error actualizando ingredientes agrupados:', err);
-    }
-  };
-
-  // Overlay de carga y mensajes de proceso
-  const renderLoadingOverlay = () => {
-    if (loadingStep === 'done' && !showReadyMsg) return null;
-    let msg = '';
-    if (loadingStep === 'menu') msg = 'Creando menú semanal...';
-    else if (loadingStep === 'cesta') msg = 'Generando cesta de la compra...';
-    else if (loadingStep === 'done' && showReadyMsg) msg = '¡Ya puedes consultar tu cesta de la compra!';
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center">
-          {(loadingStep !== 'done' || showReadyMsg) && (
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mb-4"></div>
-          )}
-          <span className="text-lg font-semibold text-green-700">{msg}</span>
-        </div>
-      </div>
-    );
-  };
-
-  // Mejorar visualización y suma de cantidades
-  const formatCantidad = (cantidad: string | undefined, otros: string[] = [], nombreIngrediente?: string) => {
-    if (!cantidad && (!otros || otros.length === 0)) return 'ver receta';
-    let totalMl = 0;
-    let totalG = 0;
-    let totalUnidades = 0;
-    let otrosTextos: string[] = [];
-    // Sumar cantidades útiles
-    const partes = (cantidad ? cantidad.split(' + ') : []).concat(otros || []);
-    const unidadesSumadas: Record<string, number> = {};
-    partes.forEach(parte => {
-      const match = parte.match(/([\d,.]+)\s*([\wáéíóúüñ]+)/i);
-      if (match) {
-        let valor = parseFloat(match[1].replace(',', '.'));
-        let unidad = match[2].toLowerCase();
-        if (UNIDADES_ML.some(u => unidad.includes(u))) {
-          totalMl += valor;
-        } else if (UNIDADES_G.some(u => unidad.includes(u))) {
-          totalG += valor;
-        } else if (unidad.includes('unidad')) {
-          totalUnidades += valor;
-        } else if (CONVERSION_UNIDADES[unidad as keyof typeof CONVERSION_UNIDADES]) {
-          // Convertir a ml o g según el tipo
-          if (unidad.includes('cucharada') || unidad.includes('chorro') || unidad.includes('vaso') || unidad.includes('taza')) {
-            totalMl += valor * CONVERSION_UNIDADES[unidad as keyof typeof CONVERSION_UNIDADES];
-          } else if (unidad.includes('pizca')) {
-            totalG += valor * CONVERSION_UNIDADES[unidad as keyof typeof CONVERSION_UNIDADES];
-          }
-        } else {
-          // Agrupar por unidad si es una unidad no estándar
-          unidadesSumadas[unidad] = (unidadesSumadas[unidad] || 0) + valor;
-        }
-      } else if (/^\d+$/.test(parte.trim())) {
-        totalUnidades += parseInt(parte.trim());
-      } else if (parte && parte.trim() !== '') {
-        otrosTextos.push(parte);
-      }
-    });
-    let resultado = [];
-    if (totalG > 0) resultado.push(`${totalG % 1 === 0 ? totalG : totalG.toFixed(2)} g`);
-    if (totalMl > 0) resultado.push(`${totalMl % 1 === 0 ? totalMl : totalMl.toFixed(2)} ml`);
-    if (totalUnidades > 0) resultado.push(`${totalUnidades} unidades`);
-    // Añadir otras unidades sumadas
-    for (const [unidad, valor] of Object.entries(unidadesSumadas)) {
-      resultado.push(`${valor % 1 === 0 ? valor : valor.toFixed(2)} ${unidad}`);
-    }
-    if (otrosTextos.length > 0) {
-      // Buscar sugerencia orientativa por nombre de ingrediente
-      let sugerencia = '';
-      if (nombreIngrediente) {
-        const clave = nombreIngrediente.toLowerCase().split(' ')[0];
-        sugerencia = SUGERENCIAS_ORIENTATIVAS[clave] || '';
-      }
-      resultado.push(sugerencia ? sugerencia : '~1 unidad');
-    }
-    if (resultado.length === 0) return '~1 unidad';
-    return resultado.join(' + ');
-  };
+  // Agrupar ingredientes por nombre y sumar cantidades de forma humanizada
+  const groupedIngredients = React.useMemo(() => agruparIngredientesHumanizado(ingredients.map(i => ({ nombre: i.nombre, cantidad: i.cantidad || '' }))), [ingredients]);
 
   useEffect(() => {
-    if (!loading && groupedIngredients.length > 0 && groupedIngredients.every(i => i.checked)) {
+    if (!loading && groupedIngredients.length > 0) {
       setShowConfetti(true);
       setShowCongrats(true);
       setTimeout(() => setShowConfetti(false), 4000);
@@ -327,29 +184,10 @@ export default function Cesta({ session, profile }: { session: Session, profile:
         <div className="bg-green-50 dark:bg-secondary-900 border border-green-200 dark:border-secondary-700 rounded-lg p-4 text-center text-green-800 dark:text-green-200 mb-4 font-semibold">
           Próximamente: checklist de ingredientes, descarga en PDF y envío por email.
         </div>
-        {/* Botón para marcar toda la lista */}
-        <div className="flex justify-center w-full mb-4">
-          <button
-            className="bg-green-600 dark:bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700 dark:hover:bg-green-600 font-semibold transition-colors w-full sm:w-auto shadow-lg"
-            onClick={async () => {
-              const allIds = groupedIngredients.flatMap(item => item.ids);
-              await handleToggleGroup(allIds, true);
-            }}
-            disabled={loadingStep !== 'done' || groupedIngredients.every(item => item.checked)}
-          >
-            Lista de la compra completa
-          </button>
-          <button
-            className="ml-4 bg-gray-200 dark:bg-secondary-700 text-secondary-800 dark:text-secondary-200 px-4 py-2 rounded hover:bg-gray-300 dark:hover:bg-secondary-600 font-semibold transition-colors w-full sm:w-auto shadow-lg"
-            onClick={() => setOcultarMarcados(v => !v)}
-          >
-            {ocultarMarcados ? 'Mostrar todo' : 'Ocultar marcados'}
-          </button>
-        </div>
-        {/* Ingredientes agrupados por tipo */}
+        {/* Mostrar la lista agrupada y sumada de ingredientes */}
         <div className="overflow-x-auto">
           <div className="divide-y divide-green-200 dark:divide-secondary-700 mt-6">
-            {ingredientesAMostrar.map(item => (
+            {groupedIngredients.map(item => (
               <div key={item.nombre} className="py-4">
                 <h2 className="text-xl font-bold text-green-700 dark:text-green-400 mb-2 border-b border-green-200 dark:border-secondary-700 pb-1">
                   {item.nombre}
@@ -360,24 +198,13 @@ export default function Cesta({ session, profile }: { session: Session, profile:
                       <tr>
                         <th className="text-left text-green-700 dark:text-green-400 pb-2 w-2/3 min-w-[180px]">Ingrediente</th>
                         <th className="text-right text-green-700 dark:text-green-400 pb-2 w-1/3 min-w-[80px]">Cantidad</th>
-                        <th className="w-10"></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {item.ids.map(id => (
-                        <tr key={id} className={ingredients.find(i => i.id === id)?.checked ? 'opacity-60' : ''}>
-                          <td className={"py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left " + (ingredients.find(i => i.id === id)?.checked ? 'line-through' : '')}>{ingredients.find(i => i.id === id)?.nombre}</td>
-                          <td className={"py-1 text-secondary-700 dark:text-secondary-300 text-right " + (ingredients.find(i => i.id === id)?.checked ? 'line-through' : '')}>{formatCantidadCompra(ingredients.find(i => i.id === id)?.nombre || '', ingredients.find(i => i.id === id)?.cantidad || '')}</td>
-                          <td className="text-center">
-                            <input
-                              type="checkbox"
-                              checked={ingredients.find(i => i.id === id)?.checked}
-                              onChange={() => handleToggleGroup([id], !ingredients.find(i => i.id === id)?.checked)}
-                              className="accent-green-600 dark:accent-green-500 w-5 h-5 rounded border-gray-300 dark:border-secondary-600 focus:ring-green-500 transition-all"
-                            />
-                          </td>
-                        </tr>
-                      ))}
+                      <tr>
+                        <td className="py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left">{item.nombre}</td>
+                        <td className="py-1 text-secondary-700 dark:text-secondary-300 text-right">{item.cantidad}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>

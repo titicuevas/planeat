@@ -314,42 +314,80 @@ export function unificarNombreIngrediente(nombre: string): string {
   return nombre.trim();
 }
 
-export function agruparIngredientes(ingredientes: { nombre: string, cantidad: string }[]): { nombre: string, cantidad: string }[] {
-  const grupos: { [key: string]: { nombre: string, cantidad: string } } = {};
-
+export function agruparIngredientesHumanizado(ingredientes: { nombre: string, cantidad: string }[]): { nombre: string, cantidad: string }[] {
+  const grupos: { [key: string]: { nombre: string, totalMl: number, totalG: number, totalUnidades: number, otros: string[] } } = {};
   ingredientes.forEach(ing => {
     const nombreUnificado = unificarNombreIngrediente(ing.nombre);
     const nombreNormalizado = nombreUnificado.toLowerCase();
-    const cantidadNormalizada = normalizarCantidad(ing.cantidad);
-
-    // Ignorar ingredientes poco útiles
-    if (INGREDIENTES_IGNORAR.some(i => nombreNormalizado.includes(i))) return;
-
+    let cantidad = ing.cantidad.toLowerCase();
     if (!grupos[nombreNormalizado]) {
-      grupos[nombreNormalizado] = {
-        nombre: nombreUnificado,
-        cantidad: cantidadNormalizada
-      };
-    } else {
-      // Si ya existe, sumar cantidades si son del mismo tipo
-      const cantActual = grupos[nombreNormalizado].cantidad;
-      const cantNueva = cantidadNormalizada;
-      if (cantActual.includes('un') && cantNueva.includes('un')) {
-        const numActual = parseInt(cantActual) || 1;
-        const numNueva = parseInt(cantNueva) || 1;
-        grupos[nombreNormalizado].cantidad = `${numActual + numNueva} un`;
-      } else if (cantActual.includes('puñ') && cantNueva.includes('puñ')) {
-        const numActual = parseInt(cantActual) || 1;
-        const numNueva = parseInt(cantNueva) || 1;
-        grupos[nombreNormalizado].cantidad = `${numActual + numNueva} puñ`;
+      grupos[nombreNormalizado] = { nombre: nombreUnificado, totalMl: 0, totalG: 0, totalUnidades: 0, otros: [] };
+    }
+    // Sumar cantidades útiles
+    const match = cantidad.match(/(\d+(?:[\.,]\d+)?)\s*(ml|g|kg|l|un|puñ|cda|cdta|diente|unidad|taza|botella|bote|paquete|barra|bolsa|malla)?/);
+    if (match) {
+      let valor = parseFloat(match[1].replace(',', '.'));
+      let unidad = (match[2] || '').toLowerCase();
+      if (unidad === 'ml' || unidad === 'l') {
+        if (unidad === 'l') valor *= 1000;
+        grupos[nombreNormalizado].totalMl += valor;
+      } else if (unidad === 'g' || unidad === 'kg') {
+        if (unidad === 'kg') valor *= 1000;
+        grupos[nombreNormalizado].totalG += valor;
+      } else if (unidad === 'un' || unidad === 'unidad' || unidad === 'diente' || unidad === 'taza' || unidad === 'botella' || unidad === 'bote' || unidad === 'paquete' || unidad === 'barra' || unidad === 'bolsa' || unidad === 'malla') {
+        grupos[nombreNormalizado].totalUnidades += valor;
       } else {
-        // Si son diferentes tipos de unidades, mantener ambas
-        grupos[nombreNormalizado].cantidad = `${cantActual} + ${cantNueva}`;
+        grupos[nombreNormalizado].otros.push(cantidad);
       }
+    } else {
+      grupos[nombreNormalizado].otros.push(cantidad);
     }
   });
-
-  return Object.values(grupos);
+  // Generar cantidades de compra realistas
+  return Object.values(grupos).map(grupo => {
+    const n = grupo.nombre.toLowerCase();
+    if (grupo.totalMl > 0) {
+      const botellas = Math.ceil(grupo.totalMl / 500);
+      return { nombre: grupo.nombre, cantidad: `${botellas} botella${botellas > 1 ? 's' : ''} (500 ml)` };
+    }
+    if (grupo.totalG > 0) {
+      if (n.includes('arroz') || n.includes('pasta') || n.includes('quinoa') || n.includes('frutos secos') || n.includes('almendra') || n.includes('nuez') || n.includes('avena')) {
+        const paquetes = Math.ceil(grupo.totalG / 500);
+        return { nombre: grupo.nombre, cantidad: `${paquetes} paquete${paquetes > 1 ? 's' : ''} (500 g)` };
+      }
+      if (n.includes('carne') || n.includes('pollo') || n.includes('pescado')) {
+        const bandejas = Math.ceil(grupo.totalG / 400);
+        return { nombre: grupo.nombre, cantidad: `${bandejas} bandeja${bandejas > 1 ? 's' : ''} (400 g)` };
+      }
+      if (n.includes('queso')) {
+        const cuñas = Math.ceil(grupo.totalG / 250);
+        return { nombre: grupo.nombre, cantidad: `${cuñas} cuña${cuñas > 1 ? 's' : ''} (250 g)` };
+      }
+      // Por defecto
+      return { nombre: grupo.nombre, cantidad: `${grupo.totalG} g` };
+    }
+    if (grupo.totalUnidades > 0) {
+      if (n.includes('huevo')) {
+        const docenas = Math.ceil(grupo.totalUnidades / 12);
+        return { nombre: grupo.nombre, cantidad: `${docenas} docena${docenas > 1 ? 's' : ''}` };
+      }
+      if (n.includes('pan')) {
+        return { nombre: grupo.nombre, cantidad: `${grupo.totalUnidades} barra${grupo.totalUnidades > 1 ? 's' : ''}` };
+      }
+      if (n.includes('yogur')) {
+        return { nombre: grupo.nombre, cantidad: `${grupo.totalUnidades} unidad${grupo.totalUnidades > 1 ? 'es' : ''}` };
+      }
+      if (n.includes('ajo')) {
+        return { nombre: grupo.nombre, cantidad: `${grupo.totalUnidades} diente${grupo.totalUnidades > 1 ? 's' : ''}` };
+      }
+      return { nombre: grupo.nombre, cantidad: `${grupo.totalUnidades} unidad${grupo.totalUnidades > 1 ? 'es' : ''}` };
+    }
+    // Si no hay cantidad sumable, mostrar la primera cantidad encontrada o sugerencia
+    if (grupo.otros.length > 0) {
+      return { nombre: grupo.nombre, cantidad: grupo.otros[0] };
+    }
+    return { nombre: grupo.nombre, cantidad: '1 unidad' };
+  });
 }
 
 // Nuevo cálculo de valores nutricionales realistas
@@ -403,7 +441,7 @@ export function calcularMacrosReales(ingredientes: { nombre: string, cantidad: s
   total.grasas = Math.round(total.grasas);
   total.calorias = Math.round(total.calorias);
   return total;
-}
+} 
 
 export function formatCantidadCompra(nombre: string, cantidad: string): string {
   const n = nombre.toLowerCase();
