@@ -23,6 +23,17 @@ const TIPOS_COMIDA: (keyof DiaComidas)[] = [
   'Snack tarde',
 ];
 
+// Añadir función para crear slug de receta
+function slugReceta(nombre: string) {
+  return nombre
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar tildes
+    .replace(/[^a-z0-9\s-]/g, '') // quitar caracteres especiales
+    .replace(/\s+/g, '-') // espacios a guiones
+    .replace(/-+/g, '-') // varios guiones a uno
+    .replace(/^-+|-+$/g, ''); // quitar guiones al inicio/fin
+}
+
 export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaCompleta = false, fechaInicio }: MenuTableProps) {
   // Calcular el día de inicio real del menú
   let fechaInicioMenu: Date;
@@ -143,7 +154,7 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
                         <>
                           {valor === '-' || valor === '' ? '' : (
                             <Link
-                              to={`/receta/${valor.toLowerCase().replace(/ /g, '-').replace(/[^a-z0-9\-]/g, '')}`}
+                              to={`/receta/${slugReceta(valor)}`}
                               className="text-green-700 dark:text-green-400 hover:underline font-semibold"
                               title={`Ver receta de ${valor}`}
                             >

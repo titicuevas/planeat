@@ -261,7 +261,7 @@ export function normalizarCantidad(cantidad: string): string {
 
 // Lista de ingredientes a ignorar en la lista de la compra
 const INGREDIENTES_IGNORAR = [
-  'agua', 'sal', 'pimienta', 'hielo', 'especias', 'vinagre', 'sirope', 'opcional', 'caldo', 'zumo', 'bebida', 'hielo', 'aroma', 'extracto', 'decoración', 'aderezo', 'condimento', 'azúcar', 'edulcorante', 'stevia', 'colorante', 'levadura', 'bicarbonato', 'vainilla', 'limón (opcional)', 'zumo de limón (opcional)'
+  'agua', 'hielo', 'sal', 'pimienta', 'especias', 'vinagre', 'sirope', 'opcional', 'caldo', 'zumo', 'bebida', 'aroma', 'extracto', 'decoración', 'aderezo', 'condimento', 'azúcar', 'edulcorante', 'stevia', 'colorante', 'levadura', 'bicarbonato', 'vainilla', 'limón (opcional)', 'zumo de limón (opcional)'
 ];
 
 // Unificación de nombres de ingredientes similares
@@ -315,8 +315,17 @@ export function unificarNombreIngrediente(nombre: string): string {
 }
 
 export function agruparIngredientesHumanizado(ingredientes: { nombre: string, cantidad: string }[]): { nombre: string, cantidad: string }[] {
+  // Filtrar ingredientes irrelevantes (agua, hielo, etc.)
+  const INGREDIENTES_IGNORAR = [
+    'agua', 'hielo', 'sal', 'pimienta', 'especias', 'vinagre', 'sirope', 'opcional', 'caldo', 'zumo', 'bebida', 'aroma', 'extracto', 'decoración', 'aderezo', 'condimento', 'azúcar', 'edulcorante', 'stevia', 'colorante', 'levadura', 'bicarbonato', 'vainilla', 'limón (opcional)', 'zumo de limón (opcional)'
+  ];
+  const ingredientesFiltrados = ingredientes.filter(ing => {
+    const n = unificarNombreIngrediente(ing.nombre).toLowerCase();
+    return !INGREDIENTES_IGNORAR.some(ign => n.includes(ign));
+  });
+
   const grupos: { [key: string]: { nombre: string, totalMl: number, totalG: number, totalUnidades: number, otros: string[] } } = {};
-  ingredientes.forEach(ing => {
+  ingredientesFiltrados.forEach(ing => {
     const nombreUnificado = unificarNombreIngrediente(ing.nombre);
     const nombreNormalizado = nombreUnificado.toLowerCase();
     let cantidad = ing.cantidad.toLowerCase();
@@ -343,14 +352,22 @@ export function agruparIngredientesHumanizado(ingredientes: { nombre: string, ca
       grupos[nombreNormalizado].otros.push(cantidad);
     }
   });
-  // Generar cantidades de compra realistas
+  // Generar cantidades de compra realistas y convertir a kg/litros si corresponde
   return Object.values(grupos).map(grupo => {
     const n = grupo.nombre.toLowerCase();
     if (grupo.totalMl > 0) {
+      if (grupo.totalMl >= 1000) {
+        const litros = (grupo.totalMl / 1000).toFixed(2).replace('.00', '');
+        return { nombre: grupo.nombre, cantidad: `${litros} l` };
+      }
       const botellas = Math.ceil(grupo.totalMl / 500);
       return { nombre: grupo.nombre, cantidad: `${botellas} botella${botellas > 1 ? 's' : ''} (500 ml)` };
     }
     if (grupo.totalG > 0) {
+      if (grupo.totalG >= 1000) {
+        const kilos = (grupo.totalG / 1000).toFixed(2).replace('.00', '');
+        return { nombre: grupo.nombre, cantidad: `${kilos} kg` };
+      }
       if (n.includes('arroz') || n.includes('pasta') || n.includes('quinoa') || n.includes('frutos secos') || n.includes('almendra') || n.includes('nuez') || n.includes('avena')) {
         const paquetes = Math.ceil(grupo.totalG / 500);
         return { nombre: grupo.nombre, cantidad: `${paquetes} paquete${paquetes > 1 ? 's' : ''} (500 g)` };
