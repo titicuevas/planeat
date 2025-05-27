@@ -181,15 +181,15 @@ function AppContent() {
       }
       // Si hay sesión y el perfil está cargado y no es null
       if (session && profileLoaded) {
-        console.log('PERFIL TRAS LOGIN:', profile);
-        if (profile && isProfileComplete(profile)) {
-          if (['/', '/login', '/register', '/perfil'].includes(location.pathname) && location.pathname !== '/inicio') {
-            navigate('/inicio', { replace: true });
-          }
-        } else {
-          // Si no hay perfil o está incompleto, ir siempre a /perfil
+        if (!profile || !isProfileComplete(profile)) {
+          // Si no hay perfil o está incompleto, ir SIEMPRE a /perfil
           if (location.pathname !== '/perfil') {
             navigate('/perfil', { replace: true });
+          }
+        } else {
+          // Solo si el perfil está completo, ir a /inicio si está en login, register o perfil
+          if (['/', '/login', '/register', '/perfil'].includes(location.pathname) && location.pathname !== '/inicio') {
+            navigate('/inicio', { replace: true });
           }
         }
         return;
