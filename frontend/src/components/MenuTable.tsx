@@ -65,6 +65,7 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
 
   // Lógica para sugerir alternativa y actualizar menú local
   const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
+    if (loadingCell) return; // Evitar múltiples solicitudes simultáneas
     setLoadingCell({ dia, tipo });
     try {
       const alternativa = await onSuggestAlternative(dia, tipo, platoActual);
@@ -77,8 +78,18 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
         cancelButtonText: 'No',
         confirmButtonColor: '#22c55e',
       });
+      
       if (result.isConfirmed) {
         const nuevoMenu = { ...menuLocal };
+        if (!nuevoMenu[dia]) {
+          nuevoMenu[dia] = {
+            Desayuno: '',
+            Comida: '',
+            Cena: '',
+            'Snack mañana': '',
+            'Snack tarde': ''
+          };
+        }
         nuevoMenu[dia] = { ...nuevoMenu[dia], [tipo]: alternativa };
         setMenuLocal(nuevoMenu);
       }
@@ -140,6 +151,7 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
                             </Link>
                           )}
                           <button
+                            type="button"
                             className="ml-2 text-xs text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
                             onClick={() => handleSuggestAlternative(keyMenu, tipo, valor)}
                             title="Sugerir alternativa"

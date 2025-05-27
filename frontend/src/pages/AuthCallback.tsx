@@ -10,47 +10,35 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('type') === 'recovery') {
-      navigate(`/reset-password${location.search}`, { replace: true });
-    } else {
-      let mounted = true;
-      const syncSession = async () => {
-        let tries = 0;
-        let user = null;
-        while (tries < 30 && mounted) {
-          const { data } = await supabase.auth.getUser();
-          user = data.user;
-          if (user) break;
-          await new Promise(res => setTimeout(res, 700));
-          tries++;
-        }
-        if (!mounted) return;
-        setChecking(false);
-        if (user) {
-          // Verificar si el perfil está completo
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('name, goal, intolerances')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
-            // Obtener el token de autenticación
-            const { data: sessionData } = await supabase.auth.getSession();
-            const accessToken = sessionData?.session?.access_token;
-            if (accessToken) {
-              navigate(`/perfil?token=${accessToken}`, { replace: true });
-            } else {
-              navigate('/perfil', { replace: true });
-            }
-          } else {
-            navigate('/inicio', { replace: true });
-          }
-        } else {
+    const type = params.get('type');
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+
+    if (type === 'signup' && accessToken && refreshToken) {
+      setChecking(true);
+      const handleAuth = async () => {
+        try {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (error) throw error;
+          
+          // Redirigir directamente al dashboard si la autenticación es exitosa
+          navigate('/dashboard', { replace: true });
+        } catch (err) {
+          console.error('Error al activar la sesión:', err);
           setFailed(true);
+        } finally {
+          setChecking(false);
         }
       };
-      syncSession();
-      return () => { mounted = false; };
+      
+      handleAuth();
+    } else {
+      // Si no hay tokens, redirigir al login con mensaje de confirmación
+      navigate('/login?confirmed=true', { replace: true });
     }
   }, [location, navigate]);
 

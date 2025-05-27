@@ -161,6 +161,7 @@ const MenuModal: React.FC<MenuModalProps> = ({
                             {menuLocal[keyMenu]?.[tipo] || 'No especificado'}
                           </p>
                           <button
+                            type="button"
                             onClick={() => handleSuggestAlternative(keyMenu, tipo, menuLocal[keyMenu]?.[tipo] || '')}
                             disabled={!!loadingAlternative}
                             className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 disabled:opacity-50"

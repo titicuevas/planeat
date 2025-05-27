@@ -127,25 +127,250 @@ export function getSnackSaludable(intolerancias: string[]): string {
 
 export function analizarMenu(menu: Record<string, DiaComidas>) {
   const estimaciones = {
-    carbohidratos: ['arroz', 'pasta', 'pan', 'patata', 'quinoa', 'avena', 'cereal', 'legumbre', 'fruta', 'batata', 'maíz'],
-    proteinas: ['pollo', 'pavo', 'huevo', 'atún', 'salmón', 'carne', 'ternera', 'tofu', 'lenteja', 'yogur', 'queso', 'pescado', 'marisco', 'soja', 'proteína', 'jamón', 'bacalao', 'merluza', 'gambas', 'calamares', 'pechuga', 'hamburguesa', 'legumbre'],
-    grasas: ['aceite', 'aguacate', 'nuez', 'almendra', 'frutos secos', 'mantequilla', 'queso', 'oliva', 'semilla', 'mayonesa', 'sésamo', 'cacahuete', 'chía', 'coco'],
+    carbohidratos: {
+      arroz: 45,
+      pasta: 40,
+      pan: 30,
+      patata: 20,
+      quinoa: 30,
+      avena: 30,
+      cereal: 25,
+      legumbre: 20,
+      fruta: 15,
+      batata: 25,
+      maíz: 20
+    },
+    proteinas: {
+      pollo: 30,
+      pavo: 30,
+      huevo: 12,
+      atún: 25,
+      salmón: 22,
+      carne: 25,
+      ternera: 25,
+      tofu: 15,
+      lenteja: 18,
+      yogur: 10,
+      queso: 20,
+      pescado: 20,
+      marisco: 20,
+      soja: 15,
+      proteína: 25,
+      jamón: 20,
+      bacalao: 20,
+      merluza: 20,
+      gambas: 20,
+      calamares: 15,
+      pechuga: 30,
+      hamburguesa: 20,
+      legumbre: 15
+    },
+    grasas: {
+      aceite: 14,
+      aguacate: 15,
+      nuez: 15,
+      almendra: 15,
+      'frutos secos': 15,
+      mantequilla: 12,
+      queso: 10,
+      oliva: 14,
+      semilla: 10,
+      mayonesa: 12,
+      sésamo: 10,
+      cacahuete: 15,
+      chía: 10,
+      coco: 12
+    }
   };
+
   let total = { carbohidratos: 0, proteinas: 0, grasas: 0, calorias: 0 };
+
   for (const dia of WEEK_DAYS) {
     const comidas = menu[dia];
     if (!comidas) continue;
+
     for (const tipo of Object.keys(comidas) as (keyof DiaComidas)[]) {
       const plato = (comidas[tipo] || '').toLowerCase();
       if (!plato || plato === 'por definir') continue;
+
+      // Calcular macros basados en ingredientes
       for (const macro in estimaciones) {
-        if (estimaciones[macro as keyof typeof estimaciones].some(k => plato.includes(k))) {
-          total[macro as keyof typeof total] += 1;
+        const ingredientes = estimaciones[macro as keyof typeof estimaciones];
+        for (const [ingrediente, valor] of Object.entries(ingredientes)) {
+          if (plato.includes(ingrediente)) {
+            total[macro as keyof typeof total] += valor;
+          }
         }
       }
-      if (tipo === 'Desayuno' || tipo === 'Snack mañana' || tipo === 'Snack tarde') total.calorias += 200;
-      if (tipo === 'Comida' || tipo === 'Cena') total.calorias += 400;
+
+      // Ajustar calorías según el tipo de comida
+      if (tipo === 'Desayuno' || tipo === 'Snack mañana' || tipo === 'Snack tarde') {
+        total.calorias += 300; // Aumentado de 200 a 300 para snacks
+      } else if (tipo === 'Comida' || tipo === 'Cena') {
+        total.calorias += 600; // Aumentado de 400 a 600 para comidas principales
+      }
     }
   }
+
+  // Ajustar valores finales
+  total.carbohidratos = Math.round(total.carbohidratos);
+  total.proteinas = Math.round(total.proteinas);
+  total.grasas = Math.round(total.grasas);
+  total.calorias = Math.round(total.calorias);
+
+  return total;
+}
+
+export function normalizarCantidad(cantidad: string): string {
+  // Convertir a minúsculas y eliminar espacios extra
+  let cant = cantidad.toLowerCase().trim();
+  
+  // Normalizar unidades
+  cant = cant.replace(/ml/g, 'ml')
+             .replace(/g/g, 'g')
+             .replace(/kg/g, 'kg')
+             .replace(/l/g, 'l')
+             .replace(/unidad(es)?/g, 'un')
+             .replace(/puñado(s)?/g, 'puñ')
+             .replace(/cucharada(s)?/g, 'cda')
+             .replace(/cucharadita(s)?/g, 'cdta');
+
+  // Normalizar números
+  if (cant.includes('~')) {
+    cant = cant.replace('~', '');
+  }
+
+  // Redondear cantidades pequeñas
+  const match = cant.match(/(\d+(?:\.\d+)?)\s*(ml|g|kg|l|un|puñ|cda|cdta)/);
+  if (match) {
+    const [_, num, unit] = match;
+    const numValue = parseFloat(num);
+    if (numValue < 1 && unit !== 'un' && unit !== 'puñ' && unit !== 'cda' && unit !== 'cdta') {
+      return `1 ${unit}`;
+    }
+    if (numValue < 5 && unit === 'ml') {
+      return `1 cda`;
+    }
+    if (numValue < 10 && unit === 'g') {
+      return `1 puñ`;
+    }
+  }
+
+  return cant;
+}
+
+// Lista de ingredientes a ignorar en la lista de la compra
+const INGREDIENTES_IGNORAR = [
+  'agua', 'sal', 'pimienta', 'hielo', 'especias', 'vinagre', 'sirope', 'opcional', 'caldo', 'zumo', 'bebida', 'hielo', 'aroma', 'extracto', 'decoración', 'aderezo', 'condimento', 'azúcar', 'edulcorante', 'stevia', 'colorante', 'levadura', 'bicarbonato', 'vainilla', 'limón (opcional)', 'zumo de limón (opcional)'
+];
+
+// Unificación de nombres de ingredientes similares
+function unificarNombreIngrediente(nombre: string): string {
+  let n = nombre.toLowerCase().trim();
+  if (n.includes('leche vegetal')) return 'Leche vegetal';
+  if (n.includes('frutos rojos congelados')) return 'Frutos rojos congelados';
+  if (n.includes('proteína vegana')) return 'Proteína vegana en polvo';
+  if (n.includes('salmón fresco')) return 'Salmón fresco';
+  if (n.includes('semillas de calabaza')) return 'Semillas de calabaza';
+  if (n.includes('limón')) return 'Limón';
+  if (n.includes('cebolla')) return 'Cebolla';
+  if (n.includes('calabaza')) return 'Calabaza';
+  if (n.includes('espárragos')) return 'Espárragos frescos';
+  if (n.includes('crema de cacahuete')) return 'Crema de cacahuete natural';
+  if (n.includes('tofu')) return 'Tofu firme';
+  if (n.includes('salsa de soja')) return 'Salsa de soja';
+  if (n.includes('manzana')) return 'Manzana';
+  // Añade más reglas según necesidades
+  return nombre.trim();
+}
+
+export function agruparIngredientes(ingredientes: { nombre: string, cantidad: string }[]): { nombre: string, cantidad: string }[] {
+  const grupos: { [key: string]: { nombre: string, cantidad: string } } = {};
+
+  ingredientes.forEach(ing => {
+    const nombreUnificado = unificarNombreIngrediente(ing.nombre);
+    const nombreNormalizado = nombreUnificado.toLowerCase();
+    const cantidadNormalizada = normalizarCantidad(ing.cantidad);
+
+    // Ignorar ingredientes poco útiles
+    if (INGREDIENTES_IGNORAR.some(i => nombreNormalizado.includes(i))) return;
+
+    if (!grupos[nombreNormalizado]) {
+      grupos[nombreNormalizado] = {
+        nombre: nombreUnificado,
+        cantidad: cantidadNormalizada
+      };
+    } else {
+      // Si ya existe, sumar cantidades si son del mismo tipo
+      const cantActual = grupos[nombreNormalizado].cantidad;
+      const cantNueva = cantidadNormalizada;
+      if (cantActual.includes('un') && cantNueva.includes('un')) {
+        const numActual = parseInt(cantActual) || 1;
+        const numNueva = parseInt(cantNueva) || 1;
+        grupos[nombreNormalizado].cantidad = `${numActual + numNueva} un`;
+      } else if (cantActual.includes('puñ') && cantNueva.includes('puñ')) {
+        const numActual = parseInt(cantActual) || 1;
+        const numNueva = parseInt(cantNueva) || 1;
+        grupos[nombreNormalizado].cantidad = `${numActual + numNueva} puñ`;
+      } else {
+        // Si son diferentes tipos de unidades, mantener ambas
+        grupos[nombreNormalizado].cantidad = `${cantActual} + ${cantNueva}`;
+      }
+    }
+  });
+
+  return Object.values(grupos);
+}
+
+// Nuevo cálculo de valores nutricionales realistas
+// (requiere que los platos tengan ingredientes y cantidades reales)
+// Aquí solo se muestra la estructura, habría que completarla con una base de datos real
+export function calcularMacrosReales(ingredientes: { nombre: string, cantidad: string }[]): { carbohidratos: number, proteinas: number, grasas: number, calorias: number } {
+  // Ejemplo de tabla de macros por ingrediente (por 100g)
+  const tablaMacros: Record<string, { c: number, p: number, g: number, kcal: number }> = {
+    'arroz': { c: 78, p: 7, g: 0.6, kcal: 350 },
+    'pollo': { c: 0, p: 27, g: 3, kcal: 145 },
+    'tofu firme': { c: 2, p: 13, g: 7, kcal: 110 },
+    'leche vegetal': { c: 3, p: 1, g: 2, kcal: 30 },
+    'frutos rojos congelados': { c: 14, p: 1, g: 0.3, kcal: 60 },
+    'manzana': { c: 14, p: 0.3, g: 0.2, kcal: 52 },
+    'salmón fresco': { c: 0, p: 20, g: 13, kcal: 200 },
+    'espárragos frescos': { c: 2, p: 2, g: 0.2, kcal: 20 },
+    'cebolla': { c: 9, p: 1, g: 0.1, kcal: 40 },
+    'calabaza': { c: 7, p: 1, g: 0.1, kcal: 30 },
+    'crema de cacahuete natural': { c: 20, p: 25, g: 50, kcal: 600 },
+    'semillas de calabaza': { c: 15, p: 30, g: 45, kcal: 560 },
+    // Añade más ingredientes según necesidades
+  };
+  let total = { carbohidratos: 0, proteinas: 0, grasas: 0, calorias: 0 };
+  ingredientes.forEach(ing => {
+    const nombre = unificarNombreIngrediente(ing.nombre).toLowerCase();
+    const macros = tablaMacros[nombre];
+    if (!macros) return;
+    // Extraer cantidad en gramos
+    let cantidadG = 0;
+    const match = ing.cantidad.match(/(\d+(?:[\.,]\d+)?)\s*g/);
+    if (match) {
+      cantidadG = parseFloat(match[1].replace(',', '.'));
+    } else if (ing.cantidad.match(/kg/)) {
+      const matchKg = ing.cantidad.match(/(\d+(?:[\.,]\d+)?)\s*kg/);
+      if (matchKg) cantidadG = parseFloat(matchKg[1].replace(',', '.')) * 1000;
+    } else if (ing.cantidad.match(/ml/)) {
+      // Para líquidos, aproximar 1ml = 1g
+      const matchMl = ing.cantidad.match(/(\d+(?:[\.,]\d+)?)\s*ml/);
+      if (matchMl) cantidadG = parseFloat(matchMl[1].replace(',', '.'));
+    }
+    if (cantidadG > 0) {
+      total.carbohidratos += (macros.c * cantidadG) / 100;
+      total.proteinas += (macros.p * cantidadG) / 100;
+      total.grasas += (macros.g * cantidadG) / 100;
+      total.calorias += (macros.kcal * cantidadG) / 100;
+    }
+  });
+  // Redondear
+  total.carbohidratos = Math.round(total.carbohidratos);
+  total.proteinas = Math.round(total.proteinas);
+  total.grasas = Math.round(total.grasas);
+  total.calorias = Math.round(total.calorias);
   return total;
 } 
