@@ -1,52 +1,58 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [checking, setChecking] = useState(true);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    const syncSession = async () => {
-      let tries = 0;
-      let user = null;
-      while (tries < 30 && mounted) {
-        const { data } = await supabase.auth.getUser();
-        user = data.user;
-        if (user) break;
-        await new Promise(res => setTimeout(res, 700));
-        tries++;
-      }
-      if (!mounted) return;
-      setChecking(false);
-      if (user) {
-        // Verificar si el perfil está completo
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('name, goal, intolerances')
-          .eq('id', user.id)
-          .maybeSingle();
-        if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
-          // Obtener el token de autenticación
-          const { data: sessionData } = await supabase.auth.getSession();
-          const accessToken = sessionData?.session?.access_token;
-          if (accessToken) {
-            navigate(`/perfil?token=${accessToken}`, { replace: true });
+    const params = new URLSearchParams(location.search);
+    if (params.get('type') === 'recovery') {
+      navigate(`/reset-password${location.search}`, { replace: true });
+    } else {
+      let mounted = true;
+      const syncSession = async () => {
+        let tries = 0;
+        let user = null;
+        while (tries < 30 && mounted) {
+          const { data } = await supabase.auth.getUser();
+          user = data.user;
+          if (user) break;
+          await new Promise(res => setTimeout(res, 700));
+          tries++;
+        }
+        if (!mounted) return;
+        setChecking(false);
+        if (user) {
+          // Verificar si el perfil está completo
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, goal, intolerances')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
+            // Obtener el token de autenticación
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData?.session?.access_token;
+            if (accessToken) {
+              navigate(`/perfil?token=${accessToken}`, { replace: true });
+            } else {
+              navigate('/perfil', { replace: true });
+            }
           } else {
-            navigate('/perfil', { replace: true });
+            navigate('/inicio', { replace: true });
           }
         } else {
-          navigate('/inicio', { replace: true });
+          setFailed(true);
         }
-      } else {
-        setFailed(true);
-      }
-    };
-    syncSession();
-    return () => { mounted = false; };
-  }, [navigate]);
+      };
+      syncSession();
+      return () => { mounted = false; };
+    }
+  }, [location, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
