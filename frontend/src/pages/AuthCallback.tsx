@@ -23,10 +23,8 @@ export default function AuthCallback() {
             refresh_token: refreshToken
           });
           if (error) throw error;
-          // Esperar a que la sesión esté activa
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) throw new Error('No se pudo obtener el usuario tras el login');
-          // Comprobar si el perfil está completo
           const { data: profile } = await supabase
             .from('profiles')
             .select('name, goal, intolerances')
@@ -46,7 +44,8 @@ export default function AuthCallback() {
       };
       handleAuth();
     } else {
-      // Si no hay tokens, redirigir al login con mensaje de confirmación
+      // Si no hay tokens, limpiar cualquier sesión y redirigir a login con mensaje de confirmación
+      supabase.auth.signOut();
       navigate('/login?confirmed=true', { replace: true });
     }
   }, [location, navigate]);
