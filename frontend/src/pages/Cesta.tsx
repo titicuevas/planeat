@@ -13,6 +13,7 @@ export default function Cesta({ session, profile }: { session: Session, profile:
   const [showReadyMsg, setShowReadyMsg] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
+  const [bannerClosed, setBannerClosed] = useState(false);
 
   // Palabras clave para cantidades irrelevantes
   const CANTIDADES_IGNORADAS = [
@@ -133,6 +134,29 @@ export default function Cesta({ session, profile }: { session: Session, profile:
     }
   }, [loading, groupedIngredients]);
 
+  // Determinar si todos los ingredientes están marcados
+  const allChecked = groupedIngredients.length > 0 && groupedIngredients.every(item => {
+    return ingredients.find(i => unificarNombreIngrediente(i.nombre) === unificarNombreIngrediente(item.nombre))?.checked;
+  });
+
+  // Mostrar banner solo cuando se marca todo y permitir cerrarlo manualmente
+  useEffect(() => {
+    if (allChecked) {
+      setShowCongrats(true);
+      setShowConfetti(true);
+      setBannerClosed(false);
+      setTimeout(() => {
+        setShowConfetti(false);
+        setShowCongrats(false);
+        setBannerClosed(true);
+      }, 3000);
+    } else {
+      setShowCongrats(false);
+      setShowConfetti(false);
+      setBannerClosed(false);
+    }
+  }, [allChecked]);
+
   // Función para clasificar ingredientes por tipo (simplificada)
   function clasificarIngrediente(nombre: string) {
     const lower = nombre.toLowerCase();
@@ -155,11 +179,6 @@ export default function Cesta({ session, profile }: { session: Session, profile:
     });
     return grupos;
   }, [groupedIngredients]);
-
-  // Determinar si todos los ingredientes están marcados
-  const allChecked = groupedIngredients.length > 0 && groupedIngredients.every(item => {
-    return ingredients.find(i => unificarNombreIngrediente(i.nombre) === unificarNombreIngrediente(item.nombre))?.checked;
-  });
 
   // Función para marcar o desmarcar todos
   async function handleCheckAll(checked: boolean) {
@@ -258,18 +277,21 @@ export default function Cesta({ session, profile }: { session: Session, profile:
           </div>
         </div>
       </div>
-      {/* Confeti y mensaje solo si todo está marcado */}
-      {allChecked && (
-        <>
-          <ReactConfetti width={window.innerWidth} height={window.innerHeight} numberOfPieces={250} recycle={false} />
-          <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-lg p-8 flex flex-col items-center border-2 border-green-400 dark:border-green-600">
-              <span className="text-2xl font-bold text-green-700 dark:text-green-400 mb-2">¡Compra completada!</span>
-              <span className="text-lg text-green-600 dark:text-green-300">Disfruta de tus menús 🎉</span>
-            </div>
-          </div>
-        </>
+      {/* Banner superior de compra completada */}
+      {showCongrats && !bannerClosed && (
+        <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 bg-green-900 text-green-100 border-2 border-green-400 rounded-xl px-8 py-4 flex items-center gap-4 shadow-xl animate-fade-in">
+          <span className="text-2xl font-bold">¡Compra completada!</span>
+          <span className="text-lg">Disfruta de tus menús 🎉</span>
+          <button
+            onClick={() => { setShowCongrats(false); setBannerClosed(true); }}
+            className="ml-4 text-green-200 hover:text-white text-xl font-bold focus:outline-none"
+            title="Cerrar"
+          >
+            ×
+          </button>
+        </div>
       )}
+      {showConfetti && <ReactConfetti width={window.innerWidth} height={window.innerHeight} numberOfPieces={250} recycle={false} />}
     </div>
   );
 } 
