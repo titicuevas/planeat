@@ -268,43 +268,48 @@ const INGREDIENTES_IGNORAR = [
 export function unificarNombreIngrediente(nombre: string): string {
   let n = nombre.toLowerCase().trim();
   // Aceite de oliva y variantes
-  if (n.includes('aceite de oliva')) return 'Aceite de oliva';
-  if (n.includes('aceite') && n.includes('virgen')) return 'Aceite de oliva';
-  // Frutos rojos congelados y variantes
-  if (n.includes('frutos rojos')) return 'Frutos rojos congelados';
-  // Almendras y mantequilla de almendras
-  if (n.includes('mantequilla de almendras')) return 'Mantequilla de almendras';
-  if (n.includes('almendra')) return 'Almendras';
-  // Calabaza
-  if (n.includes('calabaza')) return 'Calabaza';
-  // Cebolla
-  if (n.includes('cebolla')) return 'Cebolla';
-  // Espárragos
-  if (n.includes('espárrago')) return 'Espárragos frescos';
+  if (/aceite.*oliva/.test(n)) return 'Aceite de oliva';
+  if (/aceite.*virgen/.test(n)) return 'Aceite de oliva';
   // Leche vegetal y variantes
-  if (n.includes('leche vegetal')) return 'Leche vegetal';
+  if (/agua o leche vegetal/.test(n) || /leche vegetal/.test(n)) return 'Leche vegetal';
+  // Almendras y variantes
+  if (/almendra/.test(n)) return 'Almendras';
+  // Frutos rojos congelados y variantes
+  if (/frutos rojos/.test(n)) return 'Frutos rojos congelados';
+  // Proteína vegetal en polvo y variantes
+  if (/prote[ií]na.*(vegetal|arroz|soja|guisante)/.test(n)) return 'Proteína vegetal en polvo';
+  // Calabaza
+  if (/calabaza/.test(n)) return 'Calabaza';
+  // Cebolla
+  if (/cebolla/.test(n)) return 'Cebolla';
+  // Espárragos
+  if (/esp[aá]rrago/.test(n)) return 'Espárragos frescos';
   // Limón
-  if (n.includes('limón')) return 'Limón';
-  // Proteína vegetal en polvo
-  if (n.includes('proteína vegetal')) return 'Proteína vegetal en polvo';
+  if (/lim[oó]n/.test(n)) return 'Limón';
   // Semillas de calabaza
-  if (n.includes('semillas de calabaza')) return 'Semillas de calabaza';
+  if (/semillas.*calabaza/.test(n)) return 'Semillas de calabaza';
   // Semillas de chía
-  if (n.includes('chía')) return 'Semillas de chía';
+  if (/ch[ií]a/.test(n)) return 'Semillas de chía';
   // Quinoa
-  if (n.includes('quinoa')) return 'Quinoa';
+  if (/quinoa/.test(n)) return 'Quinoa';
   // Jengibre
-  if (n.includes('jengibre')) return 'Jengibre fresco';
+  if (/jengibre/.test(n)) return 'Jengibre fresco';
   // Manzana
-  if (n.includes('manzana')) return 'Manzana';
+  if (/manzana/.test(n)) return 'Manzana';
   // Puerro
-  if (n.includes('puerro')) return 'Puerro';
+  if (/puerro/.test(n)) return 'Puerro';
   // Hierbas frescas
-  if (n.includes('hierbas frescas')) return 'Hierbas frescas';
+  if (/hierbas frescas/.test(n)) return 'Hierbas frescas';
   // Perejil
-  if (n.includes('perejil')) return 'Perejil';
+  if (/perejil/.test(n)) return 'Perejil';
   // Ajo
-  if (n.includes('ajo')) return 'Ajo';
+  if (/ajo/.test(n)) return 'Ajo';
+  // Crema de cacahuete
+  if (/crema.*cacahuete/.test(n)) return 'Crema de cacahuete natural';
+  // Espinaca
+  if (/espinaca/.test(n)) return 'Espinacas';
+  // Batido de proteína
+  if (/batido.*prote[ií]na/.test(n)) return 'Batido de proteína';
   // Otros casos genéricos
   return nombre.trim();
 }
@@ -398,4 +403,72 @@ export function calcularMacrosReales(ingredientes: { nombre: string, cantidad: s
   total.grasas = Math.round(total.grasas);
   total.calorias = Math.round(total.calorias);
   return total;
-} 
+}
+
+export function formatCantidadCompra(nombre: string, cantidad: string): string {
+  const n = nombre.toLowerCase();
+  // Cantidades orientativas para ingredientes clave
+  if (n.includes('aceite')) return '1 botella (500 ml)';
+  if (n.includes('leche')) return '1 brick (1 l)';
+  if (n.includes('huevo')) return '1 docena';
+  if (n.includes('pan')) return '1 barra';
+  if (n.includes('arroz')) return '1 paquete (500 g)';
+  if (n.includes('pasta')) return '1 paquete (500 g)';
+  if (n.includes('fruta')) return '1 kg';
+  if (n.includes('verdura')) return '1 kg';
+  if (n.includes('espinaca')) return '1 bolsa';
+  if (n.includes('pomelo')) return '1 unidad';
+  if (n.includes('manzana')) return '1 unidad';
+  if (n.includes('plátano')) return '1 unidad';
+  if (n.includes('zanahoria')) return '1 bolsa';
+  if (n.includes('cebolla')) return '1 malla';
+  if (n.includes('patata')) return '1 bolsa';
+  if (n.includes('yogur')) return '4 unidades';
+  if (n.includes('queso')) return '1 cuña';
+  if (n.includes('pollo')) return '1 bandeja';
+  if (n.includes('pescado')) return '1 bandeja';
+  if (n.includes('carne')) return '1 bandeja';
+  if (n.includes('tofu')) return '1 bloque';
+  if (n.includes('proteína')) return '1 bote';
+  if (n.includes('frutos secos')) return '1 bolsa';
+  if (n.includes('almendra')) return '1 bolsa';
+  if (n.includes('nuez')) return '1 bolsa';
+  if (n.includes('avena')) return '1 paquete';
+  // Si la cantidad es pequeña o poco útil, mostrar sugerencia
+  if (!cantidad || cantidad.includes('~') || cantidad.includes('ver receta') || cantidad.includes('1 puñ') || cantidad.includes('1 cda') || cantidad.includes('1 unidad')) {
+    return SUGERENCIAS_ORIENTATIVAS[n.split(' ')[0]] || '1 unidad';
+  }
+  return cantidad;
+}
+
+// Sugerencias orientativas para ingredientes sin cantidad clara
+export const SUGERENCIAS_ORIENTATIVAS: { [clave: string]: string } = {
+  'sal': '~10 g',
+  'pimienta': '~5 g',
+  'aceite': '1 botella (500 ml)',
+  'vinagre': '~100 ml',
+  'azúcar': '~50 g',
+  'harina': '~500 g',
+  'agua': '~1 l',
+  'leche': '1 brick (1 l)',
+  'especias': '~10 g',
+  'perejil': '~1 manojo',
+  'ajo': '~1 cabeza',
+  'cebolla': '1 malla',
+  'limón': '1 unidad',
+  'tomate': '1 unidad',
+  'mantequilla': '~250 g',
+  'queso': '1 cuña',
+  'pan': '1 barra',
+  'arroz': '1 paquete (500 g)',
+  'pasta': '1 paquete (500 g)',
+  'caldo': '~1 l',
+  'zanahoria': '1 bolsa',
+  'patata': '1 bolsa',
+  'pollo': '1 bandeja',
+  'carne': '1 bandeja',
+  'pescado': '1 bandeja',
+  'huevo': '1 docena',
+  'fruta': '1 kg',
+  'verdura': '1 kg',
+}; 

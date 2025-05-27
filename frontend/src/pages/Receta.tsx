@@ -77,10 +77,17 @@ export default function Receta() {
       let nombrePlato = recetaId?.replace(/-/g, ' ') || '';
       nombrePlato = normalizaNombre(nombrePlato);
       setNombreBuscado(nombrePlato);
-      let intentos = [nombrePlato, removeDiacritics(nombrePlato).toLowerCase(), nombrePlato.toLowerCase()];
+      // Generar variantes para buscar
+      let variantes = [
+        nombrePlato,
+        removeDiacritics(nombrePlato).toLowerCase(),
+        nombrePlato.toLowerCase(),
+        nombrePlato.replace(/con|y|de|en|el|la|los|las|un|una|unos|unas/gi, '').replace(/\s+/g, ' ').trim(),
+        removeDiacritics(nombrePlato).replace(/con|y|de|en|el|la|los|las|un|una|unos|unas/gi, '').replace(/\s+/g, ' ').trim().toLowerCase()
+      ];
       let recetaEncontrada = null;
       let errorFinal = '';
-      for (let intento of intentos) {
+      for (let intento of variantes) {
         try {
           const res = await fetch('/api/receta-detalle', {
             method: 'POST',
@@ -99,7 +106,7 @@ export default function Receta() {
       if (recetaEncontrada) {
         setReceta(recetaEncontrada);
       } else {
-        setError('No se pudo obtener la receta. Nombre enviado: ' + nombrePlato);
+        setError('No se pudo obtener la receta. Nombre enviado: ' + nombrePlato + '. Prueba a buscar la receta con un nombre más simple o revisa si existe en la base de datos.');
       }
       setLoading(false);
     }

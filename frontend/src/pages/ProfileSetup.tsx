@@ -84,12 +84,12 @@ export default function ProfileSetup({ session }: { session: Session }) {
 
   const validateWeight = (value: string): boolean => {
     const num = parseFloat(value);
-    return !isNaN(num) && num > 0 && num <= 500 && value.length <= 5; // Permitir hasta 3 decimales
+    return !isNaN(num) && num > 0 && num <= 999 && /^\d{1,3}$/.test(value);
   };
 
   const validateHeight = (value: string): boolean => {
     const num = parseInt(value);
-    return !isNaN(num) && num > 0 && num <= 250;
+    return !isNaN(num) && num > 0 && num <= 250 && /^\d{1,3}$/.test(value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,7 +110,7 @@ export default function ProfileSetup({ session }: { session: Session }) {
       return;
     }
     if (peso && !validateWeight(peso)) {
-      setError('El peso debe ser un número entre 0 y 500 kg.');
+      setError('El peso debe ser un número entre 0 y 999 kg.');
       return;
     }
     if (altura && !validateHeight(altura)) {
@@ -183,27 +183,34 @@ export default function ProfileSetup({ session }: { session: Session }) {
               <label className="block text-sm font-medium text-secondary-900 dark:text-secondary-100 mb-1">Peso (kg)</label>
               <input
                 type="number"
-                step="0.1"
-                min="0"
-                max="500"
+                step="1"
+                min="1"
+                max="999"
+                maxLength={3}
+                pattern="\\d{1,3}"
                 className="w-full border border-gray-300 dark:border-secondary-600 rounded-lg px-4 py-3 bg-white dark:bg-secondary-900 text-secondary-900 dark:text-secondary-100 placeholder-gray-400 dark:placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm transition-colors"
                 value={peso}
-                onChange={e => setPeso(e.target.value)}
+                onChange={e => setPeso(e.target.value.replace(/[^\d]/g, '').slice(0,3))}
+                required
                 disabled={loading}
-                placeholder="Ej: 70.5"
+                placeholder="Tu peso en kg"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-secondary-900 dark:text-secondary-100 mb-1">Altura (cm)</label>
               <input
                 type="number"
-                min="0"
+                step="1"
+                min="1"
                 max="250"
+                maxLength={3}
+                pattern="\\d{1,3}"
                 className="w-full border border-gray-300 dark:border-secondary-600 rounded-lg px-4 py-3 bg-white dark:bg-secondary-900 text-secondary-900 dark:text-secondary-100 placeholder-gray-400 dark:placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm transition-colors"
                 value={altura}
-                onChange={e => setAltura(e.target.value)}
+                onChange={e => setAltura(e.target.value.replace(/[^\d]/g, '').slice(0,3))}
+                required
                 disabled={loading}
-                placeholder="Ej: 175"
+                placeholder="Tu altura en cm"
               />
             </div>
           </div>
