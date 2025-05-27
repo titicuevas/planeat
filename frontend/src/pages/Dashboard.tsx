@@ -10,7 +10,7 @@ import { MenuTable } from '../components/MenuTable'
 import MenuModal from '../components/MenuModal'
 import MealPlansList from '../components/MealPlansList'
 import { getBaseMondayForDisplay, puedeCrearMenuProximaSemana, getNextSaturday } from '../utils/dateUtils'
-import { normalizaMenuConSnacks, analizarMenu } from '../utils/menuUtils'
+import { normalizaMenuConSnacks, analizarMenu, getMenuHorizontal } from '../utils/menuUtils'
 import type { MealPlan, DiaComidas } from '../types/dashboard'
 import { generateMenuWithGemini } from '../api/gemini'
 import { es } from 'date-fns/locale'
@@ -190,6 +190,7 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
   }
 
   const currentWeekPlan = getCurrentWeekMenu()
+  const menuParaMostrar = currentWeekPlan ? normalizaMenuConSnacks(getMenuHorizontal(currentWeekPlan.meals, profile?.intolerances || []), profile?.intolerances || []) : null;
 
   // Detectar si el plan es de la próxima semana
   const isNextWeekPlan = currentWeekPlan && new Date(currentWeekPlan.week) > getBaseMondayForDisplay();
@@ -309,7 +310,7 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
               {/* Tabla-resumen del menú semanal */}
               <div className="mt-4 overflow-x-auto rounded-lg border border-green-100 dark:border-secondary-700 bg-white dark:bg-secondary-800 shadow">
                 <MenuTable
-                  menu={currentWeekPlan.meals}
+                  menu={menuParaMostrar || {}}
                   onSuggestAlternative={handleSuggestAlternativeTable}
                   intolerances={profile?.intolerances}
                   verSemanaCompleta={!!isNextWeekPlan}

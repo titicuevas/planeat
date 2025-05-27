@@ -8,19 +8,19 @@ export default function AuthCallback() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     const syncSession = async () => {
       let tries = 0;
       let user = null;
-      // Esperar hasta que el usuario esté activo o agotar intentos
-      while (tries < 30) {
+      while (tries < 30 && mounted) {
         const { data } = await supabase.auth.getUser();
         user = data.user;
         if (user) break;
         await new Promise(res => setTimeout(res, 700));
         tries++;
       }
+      if (!mounted) return;
       setChecking(false);
-      
       if (user) {
         // Verificar si el perfil está completo
         const { data: profile } = await supabase
@@ -28,7 +28,6 @@ export default function AuthCallback() {
           .select('name, goal, intolerances')
           .eq('id', user.id)
           .maybeSingle();
-
         if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
           // Obtener el token de autenticación
           const { data: sessionData } = await supabase.auth.getSession();
@@ -46,6 +45,7 @@ export default function AuthCallback() {
       }
     };
     syncSession();
+    return () => { mounted = false; };
   }, [navigate]);
 
   return (
