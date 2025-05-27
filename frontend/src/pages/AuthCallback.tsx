@@ -22,11 +22,21 @@ export default function AuthCallback() {
             access_token: accessToken,
             refresh_token: refreshToken
           });
-          
           if (error) throw error;
-          
-          // Redirigir directamente al dashboard si la autenticación es exitosa
-          navigate('/dashboard', { replace: true });
+          // Esperar a que la sesión esté activa
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('No se pudo obtener el usuario tras el login');
+          // Comprobar si el perfil está completo
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name, goal, intolerances')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0) {
+            navigate('/perfil', { replace: true });
+          } else {
+            navigate('/dashboard', { replace: true });
+          }
         } catch (err) {
           console.error('Error al activar la sesión:', err);
           setFailed(true);
@@ -34,7 +44,6 @@ export default function AuthCallback() {
           setChecking(false);
         }
       };
-      
       handleAuth();
     } else {
       // Si no hay tokens, redirigir al login con mensaje de confirmación

@@ -34,19 +34,26 @@ function AppContent() {
   // Loader global solo si está cargando sesión o perfil
   const showGlobalLoader = loading || !sessionChecked || loadingProfile;
 
-  // Refuerzo: limpiar todo tras logout
+  // Refuerzo: limpiar todo tras logout y borrar datos relacionados si el usuario es eliminado
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-    setProfile(null);
-    setProfileLoaded(false);
-    setLoading(true);
-    setSessionChecked(false);
-    setLoadingProfile(false);
-    setProfileRetry(0);
-    localStorage.clear();
-    sessionStorage.clear();
-    navigate('/login', { replace: true });
+    try {
+      // Llamar a un endpoint para borrar datos relacionados si el usuario va a ser eliminado (opcional)
+      // await fetch('/api/delete-user-data', { method: 'POST', credentials: 'include' });
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error cerrando sesión:', err);
+    } finally {
+      setSession(null);
+      setProfile(null);
+      setProfileLoaded(false);
+      setLoading(true);
+      setSessionChecked(false);
+      setLoadingProfile(false);
+      setProfileRetry(0);
+      localStorage.clear();
+      sessionStorage.clear();
+      navigate('/login', { replace: true });
+    }
   };
 
   // Refuerzo: NO forzar reload tras login/logout, solo actualizar estado
@@ -61,11 +68,10 @@ function AppContent() {
       setSessionChecked(true);
       console.log('SESSION (getSession):', session);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       setSession(session);
       setSessionChecked(true);
-      // Solo limpiar estado, no recargar
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setProfile(null);
@@ -78,6 +84,14 @@ function AppContent() {
         sessionStorage.clear();
         navigate('/login', { replace: true });
       }
+      // Si implementas borrado de usuario, aquí puedes llamar a un endpoint para borrar sus datos relacionados
+      // if (event === 'USER_DELETED') {
+      //   try {
+      //     await fetch('/api/delete-user-data', { method: 'POST', credentials: 'include' });
+      //   } catch (err) {
+      //     console.error('Error borrando datos relacionados del usuario:', err);
+      //   }
+      // }
       console.log('SESSION (onAuthStateChange):', session, 'EVENT:', event);
     });
     return () => {
