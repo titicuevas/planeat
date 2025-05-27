@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { remove as removeDiacritics } from 'diacritics';
 
 interface Ingrediente {
   nombre: string;
@@ -76,20 +77,31 @@ export default function Receta() {
       let nombrePlato = recetaId?.replace(/-/g, ' ') || '';
       nombrePlato = normalizaNombre(nombrePlato);
       setNombreBuscado(nombrePlato);
-      try {
-        const res = await fetch('/api/receta-detalle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nombre: nombrePlato })
-        });
-        if (!res.ok) throw new Error('No se pudo obtener la receta');
-        const data = await res.json();
-        setReceta(data);
-      } catch (err: any) {
-        setError(err.message || 'Error desconocido');
-      } finally {
-        setLoading(false);
+      let intentos = [nombrePlato, removeDiacritics(nombrePlato).toLowerCase(), nombrePlato.toLowerCase()];
+      let recetaEncontrada = null;
+      let errorFinal = '';
+      for (let intento of intentos) {
+        try {
+          const res = await fetch('/api/receta-detalle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre: intento })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            recetaEncontrada = data;
+            break;
+          }
+        } catch (err: any) {
+          errorFinal = err.message || 'Error desconocido';
+        }
       }
+      if (recetaEncontrada) {
+        setReceta(recetaEncontrada);
+      } else {
+        setError('No se pudo obtener la receta. Nombre enviado: ' + nombrePlato);
+      }
+      setLoading(false);
     }
     if (recetaId) fetchReceta();
   }, [recetaId]);
@@ -118,6 +130,7 @@ export default function Receta() {
           <div className="bg-white dark:bg-secondary-800 rounded-xl shadow-lg p-8 flex flex-col items-center">
             <span className="text-2xl font-bold text-red-700 dark:text-red-400 mb-2">No se pudo cargar la receta</span>
             <span className="text-gray-600 dark:text-secondary-200 mb-2">{error}</span>
+            <span className="text-xs text-secondary-500 dark:text-secondary-300 mt-2">¿Nombre enviado? <b>{nombreBuscado}</b></span>
             <button
               onClick={() => navigate('/inicio')}
               className="mt-4 bg-green-600 dark:bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700 dark:hover:bg-green-600 font-semibold shadow"
