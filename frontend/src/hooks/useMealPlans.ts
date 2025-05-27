@@ -200,7 +200,7 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
     try {
       let updatesToSave = { ...updates };
       if (updates.meals) {
-        updatesToSave.meals = normalizaMenuConSnacks(updates.meals) as unknown as Record<string, Record<string, string>>;
+        updatesToSave.meals = normalizaMenuConSnacks(updates.meals);
       }
       const { error } = await supabase
         .from('meal_plans')

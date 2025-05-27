@@ -98,16 +98,20 @@ export function normalizaMenuConSnacks(
 
 export function getMenuHorizontal(menu: Record<string, Partial<DiaComidas>>, intolerancias: string[] = []): Record<string, DiaComidas> {
   const normalizado: Record<string, DiaComidas> = {};
+  const tiposComida = ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde'];
   for (const dia of WEEK_DAYS) {
-    const keyLower = dia.toLowerCase();
-    const keyUpper = dia.charAt(0).toUpperCase() + dia.slice(1).toLowerCase();
-    const comidas = menu[dia] || menu[keyLower] || menu[keyUpper] || {};
+    // Buscar el día en el menú sin importar mayúsculas/minúsculas/tildes
+    const keyMenu = Object.keys(menu).find(
+      k => k.normalize('NFD').replace(/[0-\u036f]/g, '').toLowerCase() ===
+           dia.normalize('NFD').replace(/[0-\u036f]/g, '').toLowerCase()
+    );
+    const comidas = keyMenu ? menu[keyMenu] : {};
     normalizado[dia] = {
-      Desayuno: comidas.Desayuno ?? '',
-      Comida: comidas.Comida ?? '',
-      Cena: comidas.Cena ?? '',
-      'Snack mañana': comidas['Snack mañana'] ?? '',
-      'Snack tarde': comidas['Snack tarde'] ?? '',
+      Desayuno: comidas?.Desayuno || comidas?.desayuno || '',
+      Comida: comidas?.Comida || comidas?.comida || '',
+      Cena: comidas?.Cena || comidas?.cena || '',
+      'Snack mañana': comidas?.['Snack mañana'] || comidas?.['snack mañana'] || '',
+      'Snack tarde': comidas?.['Snack tarde'] || comidas?.['snack tarde'] || '',
     };
   }
   return normalizado;
@@ -139,7 +143,7 @@ export function analizarMenu(menu: Record<string, DiaComidas>) {
           total[macro as keyof typeof total] += 1;
         }
       }
-      if (tipo === 'Desayuno' || tipo.includes('Snack')) total.calorias += 200;
+      if (tipo === 'Desayuno' || tipo === 'Snack mañana' || tipo === 'Snack tarde') total.calorias += 200;
       if (tipo === 'Comida' || tipo === 'Cena') total.calorias += 400;
     }
   }
