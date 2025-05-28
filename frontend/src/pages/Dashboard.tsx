@@ -85,6 +85,12 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
     }
   }, [currentWeekPlan]);
 
+  useEffect(() => {
+    if (menuError) {
+      navigate('/login', { replace: true });
+    }
+  }, [menuError, navigate]);
+
   // Mostrar loader solo si está cargando y no hay planes ni se está creando uno
   const showLoader = plansLoading && !mealPlans.length && !creatingPlan && !creatingNextWeek;
 
@@ -273,19 +279,7 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
   }
 
   if (menuError) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <span className="block sm:inline">{menuError}</span>
-        </div>
-        <button
-          onClick={() => navigate('/perfil', { replace: true })}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
-        >
-          Ir a mi perfil
-        </button>
-      </div>
-    );
+    return null;
   }
 
   return (

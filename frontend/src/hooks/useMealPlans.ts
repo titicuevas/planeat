@@ -78,7 +78,7 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
           diasRestantes
         });
         // Normaliza el menú recibido para asegurar formato correcto y tipado
-        menu = normalizaMenuConSnacks(getMenuHorizontal(menuRaw, profile.intolerances || []), profile.intolerances || []);
+        menu = normalizaMenuConSnacks(menuRaw, profile.intolerances || []);
         console.log('Menú generado y normalizado:', menu);
         console.info('✅ Menú semanal generado mediante IA (Gemini)');
       } catch (err) {
@@ -145,7 +145,7 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
           intolerancias: profile.intolerances || []
         });
         // Normaliza el menú recibido para asegurar formato correcto
-        menu = normalizaMenuConSnacks(getMenuHorizontal(menu, profile.intolerances || []), profile.intolerances || []);
+        menu = normalizaMenuConSnacks(menu, profile.intolerances || []);
         console.log('Menú generado y normalizado:', menu);
       } catch (err) {
         console.error('Error real de Gemini:', err);
