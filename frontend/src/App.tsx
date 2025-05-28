@@ -124,10 +124,11 @@ function AppContent() {
             goal: '',
             intolerances: [],
             weight: null,
-            height: null
+            height: null,
+            email: session.user.email
           });
           if (insertError) {
-            console.error('Error creando perfil tras registro:', insertError);
+            console.error('Error creando perfil tras registro:', insertError?.message || insertError);
             setProfileError('No se pudo crear tu perfil automáticamente. Por favor, contacta con soporte o reintenta más tarde.');
             setProfile(null);
             setProfileLoaded(false);
