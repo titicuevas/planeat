@@ -35,6 +35,8 @@ export default function ProfileSetup({ session }: { session: Session }) {
   const [error, setError] = useState('');
   const [showNoUserMsg, setShowNoUserMsg] = useState(false);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
+  const [profileJustSaved, setProfileJustSaved] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     if (!session) return;
@@ -52,18 +54,22 @@ export default function ProfileSetup({ session }: { session: Session }) {
         setPeso(profile.weight?.toString() || '');
         setAltura(profile.height?.toString() || '');
         
-        // Verificar si el perfil está completo
-        const isComplete = profile.name && profile.goal && profile.intolerances && profile.intolerances.length > 0;
+        // Verificar si el perfil está completo (nombre, objetivo y al menos una intolerancia)
+        const isComplete = !!profile.name && !!profile.goal && Array.isArray(profile.intolerances) && profile.intolerances.length > 0;
         setIsProfileComplete(isComplete);
         
-        // Si el perfil está completo, redirigir a inicio
-        if (isComplete) {
-          navigate('/inicio', { replace: true });
+        // Si el perfil está completo y acaba de guardarse, mostrar bienvenida y redirigir a inicio
+        if (isComplete && profileJustSaved) {
+          setShowWelcome(true);
+          setTimeout(() => {
+            setShowWelcome(false);
+            navigate('/inicio', { replace: true });
+          }, 1800);
         }
       }
     };
     fetchProfile();
-  }, [session, navigate]);
+  }, [session, navigate, profileJustSaved]);
 
   useEffect(() => {
     document.title = 'Perfil - Planeat';
@@ -146,7 +152,7 @@ export default function ProfileSetup({ session }: { session: Session }) {
 
       localStorage.setItem('planeat_user_name', nombre);
       setLoading(false);
-      navigate('/inicio', { replace: true });
+      setProfileJustSaved(true); // Forzar recarga y redirección si el perfil está completo
     } catch (err: any) {
       setError(err.message || 'Error al guardar el perfil');
       setLoading(false);
@@ -154,7 +160,15 @@ export default function ProfileSetup({ session }: { session: Session }) {
   };
 
   if (isProfileComplete) {
-    return null; // No renderizar nada mientras se redirige
+    return showWelcome ? (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100/60 via-green-200/40 to-secondary-900/80 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 transition-colors duration-300">
+        <div className="bg-white dark:bg-secondary-800 p-10 rounded-2xl shadow-2xl flex flex-col items-center">
+          <span className="text-4xl mb-4">🎉</span>
+          <h2 className="text-2xl font-bold text-green-700 dark:text-green-400 mb-2">¡Perfil completado!</h2>
+          <p className="text-lg text-secondary-700 dark:text-secondary-200">Bienvenido/a a Planeat, {nombre}.</p>
+        </div>
+      </div>
+    ) : null; // No renderizar nada mientras se redirige
   }
 
   return (
