@@ -17,7 +17,8 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 
 app.post("/api/generate-menu", async (req, res) => {
   try {
-    const { prompt } = req.body;
+    // Prompt mejorado para pedir JSON estructurado
+    const prompt = `Genera un menú semanal saludable en formato JSON, con las claves 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'. Cada día debe tener 'desayuno', 'comida' y 'cena'. Devuelve SOLO el JSON, sin explicaciones ni texto fuera del JSON.`;
     const body = {
       contents: [{
         parts: [{ text: prompt }]
@@ -34,7 +35,30 @@ app.post("/api/generate-menu", async (req, res) => {
     if (!text || text.trim() === "") {
       return res.status(500).json({ error: "La IA no devolvió ningún menú." });
     }
-    res.json({ text });
+    // Intentar parsear JSON
+    let menu = null;
+    try {
+      const matchJsonBlock = text.match(/```json[\s\n]*([\s\S]*?)```/);
+      if (matchJsonBlock) {
+        menu = JSON.parse(matchJsonBlock[1]);
+      } else {
+        const matchJson = text.match(/\{[\s\S]*\}/);
+        if (matchJson) {
+          menu = JSON.parse(matchJson[0]);
+        } else {
+          menu = JSON.parse(text);
+        }
+      }
+    } catch (err) {
+      return res.status(500).json({ error: "La IA no devolvió un JSON válido." });
+    }
+    // Validar que el menú tiene los días y comidas
+    const dias = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
+    const valido = dias.every(dia => menu[dia] && menu[dia].desayuno && menu[dia].comida && menu[dia].cena);
+    if (!valido) {
+      return res.status(500).json({ error: "El menú generado es incompleto o mal formateado." });
+    }
+    res.json({ menu });
   } catch (error) {
     res.status(500).json({ error: error.message || "Error generando menú con la IA" });
   }

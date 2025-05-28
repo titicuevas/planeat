@@ -62,23 +62,8 @@ export async function generateMenuWithGemini({
       lastError = data.error;
       continue;
     }
-    if (platoActual) return data.text.trim();
-    try {
-      menu = JSON.parse(data.text);
-    } catch {
-      const match = data.text.match(/\{[\s\S]*\}/);
-      if (match) {
-        try {
-          menu = JSON.parse(match[0]);
-        } catch {
-          lastError = 'No se pudo parsear la respuesta de Gemini (bloque JSON)';
-          continue;
-        }
-      } else {
-        lastError = 'No se encontró un JSON válido en la respuesta de Gemini';
-        continue;
-      }
-    }
+    // Ahora el backend devuelve { menu }
+    menu = data.menu;
     // Validar que ningún plato contiene ingredientes de las intolerancias
     if (intolerancias.length > 0) {
       for (const dia of Object.keys(menu)) {
@@ -86,7 +71,7 @@ export async function generateMenuWithGemini({
           const plato = menu[dia]?.[tipo]?.toLowerCase() || '';
           for (const intol of intolerancias) {
             const intolLower = intol.toLowerCase();
-            const regexSin = new RegExp(`sin[\\w\\s,]*${intolLower}`, 'i');
+            const regexSin = new RegExp(`sin[\w\s,]*${intolLower}`, 'i');
             if (
               plato.includes(intolLower) &&
               !regexSin.test(plato)
@@ -103,7 +88,7 @@ export async function generateMenuWithGemini({
     const { hayPlatosRepetidos } = await import('../utils/menuUtils');
     const dias = Object.keys(menu || {});
     const comidasPorDia = dias.map(d => Object.keys(menu[d] || {}).length);
-    if (!menu || dias.length !== 7 || comidasPorDia.some(c => c < 5) || hayPlatosRepetidos(menu)) {
+    if (!menu || dias.length !== 7 || comidasPorDia.some(c => c < 3) || hayPlatosRepetidos(menu)) {
       lastError = 'El menú generado es incompleto o contiene platos repetidos. Reintentando...';
       menu = null;
       continue;
