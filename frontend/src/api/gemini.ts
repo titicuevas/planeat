@@ -137,8 +137,8 @@ export async function testGeminiAPI() {
   }
 }
 
-export async function getIngredientesPlatoGemini(nombrePlato: string): Promise<{nombre: string, cantidad: string}[]> {
-  const prompt = `Eres un nutricionista experto. Dame la lista de ingredientes necesarios para preparar el siguiente plato: "${nombrePlato}". Devuelve SOLO la lista de ingredientes en formato JSON como un array de objetos, cada uno con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Arroz", "cantidad": "100g"}, ...]). No incluyas explicaciones, solo el array JSON.`;
+export async function getIngredientesPlatoGemini(plato: string) {
+  const prompt = `Eres un nutricionista experto. Dame la lista de ingredientes necesarios para preparar el siguiente plato: "${plato}". Devuelve SOLO la lista de ingredientes en formato JSON como un array de objetos, cada uno con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Arroz", "cantidad": "100g"}, ...]). No incluyas explicaciones, solo el array JSON.`;
   const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/generate-menu`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -146,7 +146,7 @@ export async function getIngredientesPlatoGemini(nombrePlato: string): Promise<{
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
-  console.log('Respuesta cruda de Gemini para ingredientes:', data.text);
+  console.log('Respuesta cruda de Gemini para ingredientes:', data);
   try {
     let ingredientes;
     // Si la respuesta viene en bloque markdown, extraer el array
@@ -163,7 +163,8 @@ export async function getIngredientesPlatoGemini(nombrePlato: string): Promise<{
       return JSON.parse(match[0]);
     }
     throw new Error('No se pudo extraer un array de ingredientes de la respuesta de Gemini');
-  } catch {
-    throw new Error('No se pudo parsear la respuesta de Gemini para ingredientes');
+  } catch (err) {
+    console.error('Error en getIngredientesPlatoGemini:', err);
+    return [];
   }
 }

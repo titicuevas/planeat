@@ -147,7 +147,8 @@ export default function ProfileSetup({ session }: { session: Session }) {
 
       localStorage.setItem('planeat_user_name', nombre);
       setLoading(false);
-      setProfileJustSaved(true); // Forzar recarga y redirección si el perfil está completo
+      // Recarga el perfil y redirige directamente al dashboard
+      window.location.href = '/inicio';
     } catch (err: any) {
       setError(err.message || 'Error al guardar el perfil');
       setLoading(false);
