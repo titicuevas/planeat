@@ -243,44 +243,54 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
     console.error('No hay usuario autenticado para guardar la lista de la compra.');
     return;
   }
-  const ingredients = [];
+  const ingredients: any[] = [];
   for (const dia of WEEK_DAYS) {
     for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
       const plato = menu[dia]?.[tipo];
       if (plato) {
-        try {
-          console.log(`Pidiendo ingredientes para: ${plato}`);
-          const ingredientes = await getIngredientesPlatoGemini(plato);
-          if (!ingredientes || ingredientes.length === 0) {
-            console.warn(`Gemini NO devolvió ingredientes para: ${plato}`);
-          } else {
-            console.log(`Gemini devolvió ingredientes para ${plato}:`, ingredientes);
-          }
-          for (const ingrediente of ingredientes) {
-            let nombre = '', cantidad = '';
-            try {
-              const obj = typeof ingrediente === 'string' ? JSON.parse(ingrediente) : ingrediente;
-              nombre = obj.nombre || '';
-              cantidad = obj.cantidad || '';
-            } catch {
-              nombre = typeof ingrediente === 'string' ? ingrediente : '';
-              cantidad = '';
+        let ingredientes: any[] = [];
+        let success = false;
+        for (let intento = 1; intento <= 3; intento++) {
+          try {
+            console.log(`Intento ${intento}: Pidiendo ingredientes para: ${plato}`);
+            const resp = await getIngredientesPlatoGemini(plato);
+            if (resp && resp.length > 0) {
+              ingredientes = resp;
+              console.log(`Gemini devolvió ingredientes para ${plato}:`, ingredientes);
+              success = true;
+              break;
+            } else {
+              console.warn(`Gemini NO devolvió ingredientes para: ${plato} (intento ${intento})`);
             }
-            ingredients.push({
-              user_id: user.id,
-              meal_plan_id: mealPlanId,
-              week,
-              day: dia,
-              meal_type: tipo,
-              dish: plato,
-              ingredient: typeof ingrediente === 'string' ? ingrediente : '',
-              nombre,
-              cantidad,
-              checked: false
-            });
+          } catch (err) {
+            console.error(`Error obteniendo ingredientes para ${plato} (intento ${intento}):`, err);
           }
-        } catch (err) {
-          console.error(`Error obteniendo ingredientes para ${plato}:`, err);
+        }
+        if (!success) {
+          console.warn(`Fallo definitivo: No se pudieron obtener ingredientes para ${plato} tras 3 intentos.`);
+        }
+        for (const ingrediente of ingredientes) {
+          let nombre = '', cantidad = '';
+          try {
+            const obj = typeof ingrediente === 'string' ? JSON.parse(ingrediente) : ingrediente;
+            nombre = obj.nombre || '';
+            cantidad = obj.cantidad || '';
+          } catch {
+            nombre = typeof ingrediente === 'string' ? ingrediente : '';
+            cantidad = '';
+          }
+          ingredients.push({
+            user_id: user.id,
+            meal_plan_id: mealPlanId,
+            week,
+            day: dia,
+            meal_type: tipo,
+            dish: plato,
+            ingredient: typeof ingrediente === 'string' ? ingrediente : '',
+            nombre,
+            cantidad,
+            checked: false
+          });
         }
       } else {
         console.warn(`No hay plato para ${dia} - ${tipo}`);
