@@ -141,7 +141,7 @@ export default function Cesta({ session, profile }: { session: Session, profile:
 
   // Mostrar banner solo cuando se marca todo y permitir cerrarlo manualmente
   useEffect(() => {
-    if (allChecked) {
+    if (allChecked && groupedIngredients.length > 10) {
       setShowCongrats(true);
       setShowConfetti(true);
       setBannerClosed(false);
@@ -155,7 +155,7 @@ export default function Cesta({ session, profile }: { session: Session, profile:
       setShowConfetti(false);
       setBannerClosed(false);
     }
-  }, [allChecked]);
+  }, [allChecked, groupedIngredients.length]);
 
   // Función para clasificar ingredientes por tipo (simplificada)
   function clasificarIngrediente(nombre: string) {

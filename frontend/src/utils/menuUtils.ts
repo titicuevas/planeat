@@ -83,29 +83,63 @@ export function normalizaMenuConSnacks(
   intolerancias: string[] = []
 ): Record<string, DiaComidas> {
   const normalizado: Record<string, DiaComidas> = {};
-  for (const dia of WEEK_DAYS) {
-    const comidas = menu[dia] || {};
+  const diasSemana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+  
+  // Función auxiliar para normalizar texto (quitar tildes, espacios y convertir a minúsculas)
+  const normalizarTexto = (texto: string) => {
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  };
+
+  // Crear un mapa de días normalizados para búsqueda rápida
+  const menuNormalizado = Object.entries(menu).reduce((acc, [key, value]) => {
+    acc[normalizarTexto(key)] = value;
+    return acc;
+  }, {} as Record<string, Partial<DiaComidas>>);
+
+  // Para cada día de la semana, buscar su correspondiente en el menú
+  for (const dia of diasSemana) {
+    const diaNormalizado = normalizarTexto(dia);
+    const comidas = menuNormalizado[diaNormalizado] || {};
+    
     normalizado[dia] = {
-      Desayuno: comidas.Desayuno || MENU_EJEMPLO[dia]?.Desayuno || 'Por definir',
-      Comida: comidas.Comida || MENU_EJEMPLO[dia]?.Comida || 'Por definir',
-      Cena: comidas.Cena || MENU_EJEMPLO[dia]?.Cena || 'Por definir',
-      'Snack mañana': comidas['Snack mañana'] || getSnackSaludable(intolerancias),
-      'Snack tarde': comidas['Snack tarde'] || getSnackSaludable(intolerancias),
+      Desayuno: comidas.Desayuno || comidas.desayuno || 'Por definir',
+      Comida: comidas.Comida || comidas.comida || 'Por definir',
+      Cena: comidas.Cena || comidas.cena || 'Por definir',
+      'Snack mañana': comidas['Snack mañana'] || comidas['snack mañana'] || 'Por definir',
+      'Snack tarde': comidas['Snack tarde'] || comidas['snack tarde'] || 'Por definir',
     };
   }
+
   return normalizado;
 }
 
 export function getMenuHorizontal(menu: Record<string, Partial<DiaComidas>>, intolerancias: string[] = []): Record<string, DiaComidas> {
   const normalizado: Record<string, DiaComidas> = {};
   const tiposComida = ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde'];
+
+  // Función auxiliar para normalizar texto (quitar tildes, espacios y convertir a minúsculas)
+  const normalizarTexto = (texto: string) => {
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  };
+
+  // Crear un mapa de días normalizados para búsqueda rápida
+  const menuNormalizado = Object.entries(menu).reduce((acc, [key, value]) => {
+    acc[normalizarTexto(key)] = value;
+    return acc;
+  }, {} as Record<string, Partial<DiaComidas>>);
+
   for (const dia of WEEK_DAYS) {
-    // Buscar el día en el menú sin importar mayúsculas/minúsculas/tildes
-    const keyMenu = Object.keys(menu).find(
-      k => k.normalize('NFD').replace(/[0-\u036f]/g, '').toLowerCase() ===
-           dia.normalize('NFD').replace(/[0-\u036f]/g, '').toLowerCase()
-    );
-    const comidas = keyMenu ? menu[keyMenu] : {};
+    const diaNormalizado = normalizarTexto(dia);
+    const comidas = menuNormalizado[diaNormalizado] || {};
+    
     normalizado[dia] = {
       Desayuno: comidas?.Desayuno || comidas?.desayuno || '',
       Comida: comidas?.Comida || comidas?.comida || '',
@@ -417,9 +451,29 @@ export function agruparIngredientesHumanizado(ingredientes: { nombre: string, ca
 // Detección de menús repetidos
 export function hayPlatosRepetidos(menu: Record<string, any>): boolean {
   const platos = new Set<string>();
-  for (const dia of Object.keys(menu)) {
+  
+  // Función auxiliar para normalizar texto (quitar tildes, espacios y convertir a minúsculas)
+  const normalizarTexto = (texto: string) => {
+    return texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  };
+
+  // Crear un mapa de días normalizados para búsqueda rápida
+  const menuNormalizado = Object.entries(menu).reduce((acc, [key, value]) => {
+    acc[normalizarTexto(key)] = value;
+    return acc;
+  }, {} as Record<string, any>);
+
+  for (const dia of WEEK_DAYS) {
+    const diaNormalizado = normalizarTexto(dia);
+    const comidas = menuNormalizado[diaNormalizado];
+    if (!comidas) continue;
+
     for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
-      const plato = menu[dia]?.[tipo]?.toLowerCase().trim();
+      const plato = comidas[tipo]?.toLowerCase().trim();
       if (!plato) continue;
       if (platos.has(plato)) return true;
       platos.add(plato);

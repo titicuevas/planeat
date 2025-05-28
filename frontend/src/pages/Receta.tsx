@@ -75,6 +75,8 @@ export default function Receta() {
       setLoading(true);
       setError(null);
       let nombrePlato = recetaId?.replace(/-/g, ' ') || '';
+      // Simplificar nombre: quitar paréntesis y palabras extra
+      nombrePlato = nombrePlato.replace(/\(.*?\)/g, '').replace(/con|y|de|en|el|la|los|las|un|una|unos|unas/gi, '').replace(/\s+/g, ' ').trim();
       nombrePlato = normalizaNombre(nombrePlato);
       setNombreBuscado(nombrePlato);
       // Generar variantes para buscar
@@ -129,6 +131,11 @@ export default function Receta() {
     document.title = 'Recetas - Planeat';
   }, []);
 
+  // Botón de reintentar
+  function handleRetry() {
+    window.location.reload();
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50/80 via-green-100/60 to-green-200/40 dark:from-secondary-900 dark:via-secondary-800 dark:to-secondary-900 flex flex-col items-center py-0 transition-colors duration-300 relative overflow-x-auto">
       {loading ? (
@@ -150,6 +157,12 @@ export default function Receta() {
             <span className="text-2xl font-bold text-red-700 dark:text-red-400 mb-2">No se pudo cargar la receta</span>
             <span className="text-gray-600 dark:text-secondary-200 mb-2">{error}</span>
             <span className="text-xs text-secondary-500 dark:text-secondary-300 mt-2">¿Nombre enviado? <b>{nombreBuscado}</b></span>
+            <button
+              onClick={handleRetry}
+              className="mt-4 bg-green-600 dark:bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700 dark:hover:bg-green-600 font-semibold shadow"
+            >
+              Reintentar
+            </button>
             <button
               onClick={() => navigate('/inicio')}
               className="mt-4 bg-green-600 dark:bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700 dark:hover:bg-green-600 font-semibold shadow"

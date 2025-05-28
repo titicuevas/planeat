@@ -62,8 +62,12 @@ const MenuModal: React.FC<MenuModalProps> = ({
         const menuNormalizado = normalizaMenuConSnacks(nuevoMenu);
         setMenuLocal(menuNormalizado);
       }
-    } catch (err) {
-      Swal.fire('Error', 'No se pudo sugerir alternativa', 'error');
+    } catch (err: any) {
+      if (err.message && err.message.includes('overloaded')) {
+        await Swal.fire('IA saturada', 'El modelo de IA está saturado, inténtalo de nuevo en unos minutos.', 'warning');
+      } else {
+        await Swal.fire('Error', 'No se pudo sugerir alternativa. Intenta de nuevo.', 'error');
+      }
     }
   };
 
