@@ -145,10 +145,21 @@ export default function ProfileSetup({ session }: { session: Session }) {
         return;
       }
 
-      localStorage.setItem('planeat_user_name', nombre);
-      setLoading(false);
-      // Recarga el perfil y redirige directamente al dashboard
-      window.location.href = '/inicio';
+      // Esperar a que el perfil esté realmente actualizado antes de redirigir
+      const { data: perfilActualizado } = await supabase
+        .from('profiles')
+        .select('name, goal, intolerances, weight, height')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      const completo = perfilActualizado && perfilActualizado.name && perfilActualizado.goal && Array.isArray(perfilActualizado.intolerances) && perfilActualizado.intolerances.length > 0 && perfilActualizado.weight && perfilActualizado.height;
+      if (completo) {
+        localStorage.setItem('planeat_user_name', nombre);
+        setLoading(false);
+        window.location.href = '/inicio';
+      } else {
+        setError('El perfil no se guardó correctamente. Intenta de nuevo.');
+        setLoading(false);
+      }
     } catch (err: any) {
       setError(err.message || 'Error al guardar el perfil');
       setLoading(false);
