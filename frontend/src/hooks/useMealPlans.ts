@@ -245,6 +245,11 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
   }
   const ingredients: any[] = [];
   for (const dia of WEEK_DAYS) {
+    // Solo procesar días desde hoy en adelante
+    const now = new Date();
+    const diaSemana = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=lunes, 6=domingo
+    const indexDia = WEEK_DAYS.indexOf(dia);
+    if (indexDia < diaSemana) continue;
     for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
       const plato = menu[dia]?.[tipo];
       if (plato) {
