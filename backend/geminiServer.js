@@ -17,7 +17,8 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 
 app.post("/api/generate-menu", async (req, res) => {
   try {
-    const { prompt } = req.body;
+    // Prompt estricto para Gemini
+    const prompt = `Eres un nutricionista experto. Genera un menú semanal saludable en formato JSON puro, con las claves en minúscula: 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'. Cada día debe tener OBLIGATORIAMENTE los campos: 'desayuno', 'comida', 'cena', 'snack mañana', 'snack tarde'. No repitas ningún plato en toda la semana. Devuelve SOLO el JSON, sin explicaciones ni texto fuera del JSON. Ejemplo de formato:\n{\n  "lunes": { "desayuno": "...", "comida": "...", "cena": "...", "snack mañana": "...", "snack tarde": "..." },\n  ...\n}`;
     const body = {
       contents: [{
         parts: [{ text: prompt }]
@@ -33,123 +34,40 @@ app.post("/api/generate-menu", async (req, res) => {
     let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     let menu = null;
     try {
-      menu = JSON.parse(text);
-    } catch {
-      // Intentar extraer bloque JSON si viene envuelto en texto
+      // Extraer solo el bloque JSON si viene envuelto en texto
       const match = text.match(/\{[\s\S]*\}/);
       if (match) {
-        try { menu = JSON.parse(match[0]); } catch {}
+        menu = JSON.parse(match[0]);
+      } else {
+        menu = JSON.parse(text);
       }
+      // Normalizar claves a minúscula (días y comidas)
+      const normalizaMenu = (menu) => {
+        const dias = Object.keys(menu);
+        const nuevoMenu = {};
+        for (const dia of dias) {
+          const diaMin = dia.toLowerCase();
+          const comidas = menu[dia];
+          const nuevoComidas = {};
+          for (const tipo of Object.keys(comidas)) {
+            nuevoComidas[tipo.toLowerCase()] = comidas[tipo];
+          }
+          nuevoMenu[diaMin] = nuevoComidas;
+        }
+        return nuevoMenu;
+      };
+      menu = normalizaMenu(menu);
+    } catch {
+      menu = null;
     }
     if (!menu) {
-      // Fallback: menú de ejemplo bien formateado
-      menu = {
-        "lunes": {
-          "Desayuno": "Avena con frutas",
-          "Comida": "Ensalada de pollo",
-          "Cena": "Sopa de verduras",
-          "Snack mañana": "Fruta fresca",
-          "Snack tarde": "Yogur vegetal"
-        },
-        "martes": {
-          "Desayuno": "Tostadas integrales",
-          "Comida": "Lentejas estofadas",
-          "Cena": "Tortilla francesa",
-          "Snack mañana": "Fruta fresca",
-          "Snack tarde": "Palitos de zanahoria"
-        },
-        "miércoles": {
-          "Desayuno": "Pan integral con tomate",
-          "Comida": "Arroz integral con verduras",
-          "Cena": "Pescado al horno",
-          "Snack mañana": "Fruta fresca",
-          "Snack tarde": "Galletas de avena"
-        },
-        "jueves": {
-          "Desayuno": "Yogur con semillas",
-          "Comida": "Pollo a la plancha",
-          "Cena": "Ensalada de garbanzos",
-          "Snack mañana": "Fruta fresca",
-          "Snack tarde": "Barrita de cereales"
-        },
-        "viernes": {
-          "Desayuno": "Batido verde",
-          "Comida": "Pasta integral con verduras",
-          "Cena": "Crema de calabaza",
-          "Snack mañana": "Fruta fresca",
-          "Snack tarde": "Nueces"
-        },
-        "sábado": {
-          "Desayuno": "Tortitas de avena",
-          "Comida": "Paella de verduras",
-          "Cena": "Pizza casera saludable",
-          "Snack mañana": "Fruta fresca",
-          "Snack tarde": "Yogur vegetal"
-        },
-        "domingo": {
-          "Desayuno": "Huevos revueltos",
-          "Comida": "Asado de ternera con patatas",
-          "Cena": "Ensalada César",
-          "Snack mañana": "Fruta fresca",
-          "Snack tarde": "Frutos secos"
-        }
-      };
+      // Si la IA falla, responde con error 500 y mensaje claro
+      return res.status(500).json({ error: "No se pudo generar el menú con la IA. Intenta de nuevo más tarde." });
     }
     res.json({ menu });
   } catch (err) {
-    // Fallback: menú de ejemplo bien formateado
-    const menu = {
-      "lunes": {
-        "Desayuno": "Avena con frutas",
-        "Comida": "Ensalada de pollo",
-        "Cena": "Sopa de verduras",
-        "Snack mañana": "Fruta fresca",
-        "Snack tarde": "Yogur vegetal"
-      },
-      "martes": {
-        "Desayuno": "Tostadas integrales",
-        "Comida": "Lentejas estofadas",
-        "Cena": "Tortilla francesa",
-        "Snack mañana": "Fruta fresca",
-        "Snack tarde": "Palitos de zanahoria"
-      },
-      "miércoles": {
-        "Desayuno": "Pan integral con tomate",
-        "Comida": "Arroz integral con verduras",
-        "Cena": "Pescado al horno",
-        "Snack mañana": "Fruta fresca",
-        "Snack tarde": "Galletas de avena"
-      },
-      "jueves": {
-        "Desayuno": "Yogur con semillas",
-        "Comida": "Pollo a la plancha",
-        "Cena": "Ensalada de garbanzos",
-        "Snack mañana": "Fruta fresca",
-        "Snack tarde": "Barrita de cereales"
-      },
-      "viernes": {
-        "Desayuno": "Batido verde",
-        "Comida": "Pasta integral con verduras",
-        "Cena": "Crema de calabaza",
-        "Snack mañana": "Fruta fresca",
-        "Snack tarde": "Nueces"
-      },
-      "sábado": {
-        "Desayuno": "Tortitas de avena",
-        "Comida": "Paella de verduras",
-        "Cena": "Pizza casera saludable",
-        "Snack mañana": "Fruta fresca",
-        "Snack tarde": "Yogur vegetal"
-      },
-      "domingo": {
-        "Desayuno": "Huevos revueltos",
-        "Comida": "Asado de ternera con patatas",
-        "Cena": "Ensalada César",
-        "Snack mañana": "Fruta fresca",
-        "Snack tarde": "Frutos secos"
-      }
-    };
-    res.json({ menu });
+    // Si la IA falla, responde con error 500 y mensaje claro
+    return res.status(500).json({ error: "No se pudo generar el menú con la IA. Intenta de nuevo más tarde." });
   }
 });
 
