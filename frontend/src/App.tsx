@@ -66,7 +66,6 @@ function AppContent() {
       setSession(session);
       setLoading(false);
       setSessionChecked(true);
-      console.log('SESSION (getSession):', session);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
@@ -84,21 +83,12 @@ function AppContent() {
         sessionStorage.clear();
         navigate('/login', { replace: true });
       }
-      // Si implementas borrado de usuario, aquí puedes llamar a un endpoint para borrar sus datos relacionados
-      // if (event === 'USER_DELETED') {
-      //   try {
-      //     await fetch('/api/delete-user-data', { method: 'POST', credentials: 'include' });
-      //   } catch (err) {
-      //     console.error('Error borrando datos relacionados del usuario:', err);
-      //   }
-      // }
-      console.log('SESSION (onAuthStateChange):', session, 'EVENT:', event);
     });
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [location.pathname, navigate]);
+  }, []); // Solo una vez al montar
 
   useEffect(() => {
     let retryCount = 0;

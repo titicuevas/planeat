@@ -73,8 +73,13 @@ const MenuModal: React.FC<MenuModalProps> = ({
 
   if (!menuLocal || !plan) return null;
 
+  // Log para depuración de valores nutricionales
+  console.log('Menú recibido para análisis nutricional:', menuLocal);
   const analisis = analizarMenu(menuLocal);
   const totalMacros = analisis.carbohidratos + analisis.proteinas + analisis.grasas;
+  if (analisis.carbohidratos === 0 && analisis.proteinas === 0 && analisis.grasas === 0) {
+    console.warn('El menú recibido para análisis nutricional está vacío o mal formateado.');
+  }
 
   // Calcular los días a mostrar según el estado verSemanaCompleta
   const fechaInicioMenu = new Date(plan.week);

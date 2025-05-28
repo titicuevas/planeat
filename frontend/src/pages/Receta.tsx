@@ -92,6 +92,7 @@ export default function Receta() {
       let errorFinal = '';
       for (let intento of variantes) {
         try {
+          console.log('Buscando receta con nombre:', intento);
           const res = await fetch('/api/receta-detalle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -109,6 +110,7 @@ export default function Receta() {
       if (recetaEncontrada) {
         setReceta(recetaEncontrada);
       } else {
+        console.warn('No se encontró la receta para ninguno de los nombres probados:', variantes);
         // Receta de ejemplo por defecto si no se encuentra
         setReceta({
           nombre: nombrePlato,

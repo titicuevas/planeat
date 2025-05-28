@@ -80,11 +80,13 @@ export function useMealPlans(userId: string | undefined, profile: Profile | null
         // Normaliza el menú recibido para asegurar formato correcto y tipado
         menu = normalizaMenuConSnacks(getMenuHorizontal(menuRaw, profile.intolerances || []), profile.intolerances || []);
         console.log('Menú generado y normalizado:', menu);
+        console.info('✅ Menú semanal generado mediante IA (Gemini)');
       } catch (err) {
         console.error('Error real de Gemini:', err);
         // Si Gemini falla, usa menú de ejemplo
         menu = normalizaMenuConSnacks(getMenuHorizontal(MENU_EJEMPLO, profile.intolerances || []), profile.intolerances || []);
         console.log('Usando menú de ejemplo:', menu);
+        console.warn('⚠️ Menú semanal generado con el menú de ejemplo (NO IA)');
       }
 
       const planTitle = title || `Menú semana ${week}`;
@@ -237,16 +239,22 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
   const { getIngredientesPlatoGemini } = await import('../api/gemini');
   const { WEEK_DAYS } = await import('../types/dashboard');
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) {
+    console.error('No hay usuario autenticado para guardar la lista de la compra.');
+    return;
+  }
   const ingredients = [];
   for (const dia of WEEK_DAYS) {
     for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
       const plato = menu[dia]?.[tipo];
       if (plato) {
         try {
+          console.log(`Pidiendo ingredientes para: ${plato}`);
           const ingredientes = await getIngredientesPlatoGemini(plato);
           if (!ingredientes || ingredientes.length === 0) {
-            console.warn(`Gemini no devolvió ingredientes para: ${plato}`);
+            console.warn(`Gemini NO devolvió ingredientes para: ${plato}`);
+          } else {
+            console.log(`Gemini devolvió ingredientes para ${plato}:`, ingredientes);
           }
           for (const ingrediente of ingredientes) {
             let nombre = '', cantidad = '';
@@ -274,14 +282,21 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
         } catch (err) {
           console.error(`Error obteniendo ingredientes para ${plato}:`, err);
         }
+      } else {
+        console.warn(`No hay plato para ${dia} - ${tipo}`);
       }
     }
   }
   if (ingredients.length > 0) {
     const { error } = await supabase.from('shopping_list').insert(ingredients);
-    if (error) console.error('Error guardando ingredientes:', error);
-    else console.log('Ingredientes guardados correctamente:', ingredients);
+    if (error) {
+      console.error('Error guardando ingredientes:', error);
+      alert('Error guardando la lista de la compra. Intenta de nuevo.');
+    } else {
+      console.log('Ingredientes guardados correctamente:', ingredients);
+    }
   } else {
     console.warn('No se generaron ingredientes para la lista de la compra.');
+    alert('No se pudo generar la lista de la compra. Puede que la IA no haya devuelto ingredientes.');
   }
 } 
