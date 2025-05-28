@@ -14,37 +14,12 @@ export default function AuthCallback() {
     const accessToken = params.get('access_token');
     const refreshToken = params.get('refresh_token');
 
+    // Siempre, tras confirmación, cerrar sesión y redirigir a login
     if (type === 'signup' && accessToken && refreshToken) {
-      setChecking(true);
-      const handleAuth = async () => {
-        try {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
-          if (error) throw error;
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) throw new Error('No se pudo obtener el usuario tras el login');
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('name, goal, intolerances, weight, height')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (!profile || !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0 || !profile.weight || !profile.height) {
-            navigate('/perfil', { replace: true });
-          } else {
-            navigate('/inicio', { replace: true });
-          }
-        } catch (err) {
-          console.error('Error al activar la sesión:', err);
-          setFailed(true);
-        } finally {
-          setChecking(false);
-        }
-      };
-      handleAuth();
+      supabase.auth.signOut();
+      navigate('/login?confirmed=true', { replace: true });
+      return;
     } else {
-      // Si no hay tokens, limpiar cualquier sesión y redirigir a login con mensaje de confirmación
       supabase.auth.signOut();
       navigate('/login?confirmed=true', { replace: true });
     }
