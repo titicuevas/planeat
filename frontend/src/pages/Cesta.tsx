@@ -81,6 +81,7 @@ export default function Cesta({ session, profile }: { session: Session, profile:
 
   useEffect(() => {
     let mounted = true;
+    let timeout: NodeJS.Timeout;
     async function loadIngredients() {
       if (!session || !session.user?.id || !profile) return;
       setLoadingStep('menu');
@@ -108,7 +109,14 @@ export default function Cesta({ session, profile }: { session: Session, profile:
       }
     }
     loadIngredients();
-    return () => { mounted = false; };
+    // Si tras 5 segundos no hay ingredientes, mostrar mensaje de error
+    timeout = setTimeout(() => {
+      if (mounted && ingredients.length === 0) {
+        setLoading(false);
+        setLoadingStep('done');
+      }
+    }, 5000);
+    return () => { mounted = false; clearTimeout(timeout); };
   }, [session, profile]);
 
   useEffect(() => {
@@ -205,11 +213,25 @@ export default function Cesta({ session, profile }: { session: Session, profile:
   // Validación: solo mostrar la lista si hay suficientes ingredientes (por ejemplo, más de 10)
   const listaCompleta = groupedIngredients.length > 10;
 
-  // Mostrar loader si no hay sesión o perfil
-  if (!session || !session.user?.id || !profile) {
+  // Mostrar loader si no hay sesión o perfil o si está cargando
+  if (!session || !session.user?.id || !profile || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-secondary-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
+  // Si solo hay ingredientes "No disponible", mostrar mensaje de error
+  const soloNoDisponible = ingredients.length > 0 && ingredients.every(i => i.nombre === 'No disponible');
+  if (soloNoDisponible || ingredients.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-secondary-900">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-xl shadow-lg text-center">
+          <div className="font-bold mb-2">No se pudo generar la lista de la compra.</div>
+          <div className="mb-4">Puede que la IA no haya devuelto ingredientes o haya habido un error. Intenta de nuevo.</div>
+          <button onClick={() => window.location.reload()} className="bg-green-600 text-white px-4 py-2 rounded font-semibold shadow hover:bg-green-700">Reintentar</button>
+          <button onClick={() => navigate('/inicio')} className="ml-4 bg-gray-400 text-white px-4 py-2 rounded font-semibold shadow hover:bg-gray-500">Volver al inicio</button>
+        </div>
       </div>
     );
   }

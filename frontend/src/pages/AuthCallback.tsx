@@ -16,12 +16,13 @@ export default function AuthCallback() {
 
     // Siempre, tras confirmación, cerrar sesión y redirigir a login
     if (type === 'signup' && accessToken && refreshToken) {
-      supabase.auth.signOut();
-      navigate('/login?confirmed=true', { replace: true });
-      return;
+      supabase.auth.signOut().then(() => {
+        window.location.replace('/login?confirmed=true');
+      });
     } else {
-      supabase.auth.signOut();
-      navigate('/login?confirmed=true', { replace: true });
+      supabase.auth.signOut().then(() => {
+        window.location.replace('/login?confirmed=true');
+      });
     }
   }, [location, navigate]);
 

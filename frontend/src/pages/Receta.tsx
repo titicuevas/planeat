@@ -75,10 +75,15 @@ export default function Receta() {
       setLoading(true);
       setError(null);
       let nombrePlato = recetaId?.replace(/-/g, ' ') || '';
-      // Mejorar limpieza: solo quitar paréntesis, mantener palabras clave
       nombrePlato = nombrePlato.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
       nombrePlato = normalizaNombre(nombrePlato);
       setNombreBuscado(nombrePlato);
+      if (nombrePlato === 'No Disponible') {
+        setError('No hay receta disponible para este plato.');
+        setReceta(null);
+        setLoading(false);
+        return;
+      }
       // Generar variantes para buscar (con/sin tildes, minúsculas, etc.)
       let variantes = [
         nombrePlato,
