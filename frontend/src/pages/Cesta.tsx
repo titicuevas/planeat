@@ -202,6 +202,9 @@ export default function Cesta({ session, profile }: { session: Session, profile:
     setIngredients(prev => prev.map(i => i.nombre === nombre ? { ...i, checked } : i));
   }
 
+  // Validación: solo mostrar la lista si hay suficientes ingredientes (por ejemplo, más de 10)
+  const listaCompleta = groupedIngredients.length > 10;
+
   // Mostrar loader si no hay sesión o perfil
   if (!session || !session.user?.id || !profile) {
     return (
@@ -234,7 +237,7 @@ export default function Cesta({ session, profile }: { session: Session, profile:
           </button>
         </div>
         {/* Mostrar la lista agrupada y sumada de ingredientes por categoría con checklist */}
-        <div className="overflow-x-auto">
+        {listaCompleta ? (
           <div className="divide-y divide-green-200 dark:divide-secondary-700 mt-6">
             {Object.entries(ingredientesPorTipo).map(([categoria, items]) => (
               <div key={categoria} className="mb-6">
@@ -244,38 +247,38 @@ export default function Cesta({ session, profile }: { session: Session, profile:
                   const checked = ingredients.find(i => unificarNombreIngrediente(i.nombre) === unificarNombreIngrediente(item.nombre))?.checked || false;
                   return (
                     <div key={item.nombre} className="py-2">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm mb-2 min-w-[350px]">
-                          <thead>
-                            <tr>
-                              <th className="text-left text-green-700 dark:text-green-400 pb-2 w-1/12"></th>
-                              <th className="text-left text-green-700 dark:text-green-400 pb-2 w-7/12 min-w-[180px]">Ingrediente</th>
-                              <th className="text-right text-green-700 dark:text-green-400 pb-2 w-4/12 min-w-[80px]">Cantidad</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td className="py-1 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={e => handleCheck(item.nombre, e.target.checked)}
-                                  className="accent-green-600 dark:accent-green-500 w-5 h-5 rounded border-gray-300 dark:border-secondary-600 focus:ring-green-500 transition-all"
-                                />
-                              </td>
-                              <td className={`py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.nombre}</td>
-                              <td className={`py-1 text-secondary-700 dark:text-secondary-300 text-right ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.cantidad}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+                      <table className="w-full text-sm mb-2 min-w-[350px]">
+                        <thead>
+                          <tr>
+                            <th className="text-left text-green-700 dark:text-green-400 pb-2 w-1/12"></th>
+                            <th className="text-left text-green-700 dark:text-green-400 pb-2 w-7/12 min-w-[180px]">Ingrediente</th>
+                            <th className="text-right text-green-700 dark:text-green-400 pb-2 w-4/12 min-w-[80px]">Cantidad</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="py-1 text-center">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={e => handleCheck(item.nombre, e.target.checked)}
+                                className="accent-green-600 dark:accent-green-500 w-5 h-5 rounded border-gray-300 dark:border-secondary-600 focus:ring-green-500 transition-all"
+                              />
+                            </td>
+                            <td className={`py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.nombre}</td>
+                            <td className={`py-1 text-secondary-700 dark:text-secondary-300 text-right ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.cantidad}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   );
                 })}
               </div>
             ))}
           </div>
-        </div>
+        ) : (
+          <div className="text-center text-lg text-red-600 dark:text-red-400 mt-8">La lista de la compra aún no está completa. Genera tu menú semanal para ver la lista completa.</div>
+        )}
       </div>
       {/* Banner superior de compra completada */}
       {showCongrats && !bannerClosed && (
