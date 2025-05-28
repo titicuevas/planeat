@@ -129,11 +129,13 @@ function AppContent() {
           });
           if (upsertError) {
             console.error('Error creando perfil tras registro:', upsertError?.message || upsertError);
-            setProfileError('No se pudo crear tu perfil automáticamente. Por favor, contacta con soporte o reintenta más tarde.');
+            await supabase.auth.signOut();
+            setSession(null);
             setProfile(null);
             setProfileLoaded(false);
             setLoadingProfile(false);
-            setShowProfileRetry(true);
+            setShowProfileRetry(false);
+            navigate('/login', { replace: true });
             return;
           } else {
             // Volver a intentar cargar el perfil tras crearlo

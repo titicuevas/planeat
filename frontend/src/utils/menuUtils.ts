@@ -104,13 +104,21 @@ export function normalizaMenuConSnacks(
   for (const dia of diasSemana) {
     const diaNormalizado = normalizarTexto(dia);
     const comidas = menuNormalizado[diaNormalizado] || {};
-    
+    const desayuno = comidas.Desayuno || comidas.desayuno || '';
+    const comida = comidas.Comida || comidas.comida || '';
+    const cena = comidas.Cena || comidas.cena || '';
+    const snackManana = comidas['Snack mañana'] || comidas['snack mañana'] || '';
+    const snackTarde = comidas['Snack tarde'] || comidas['snack tarde'] || '';
+    // Si algún campo está vacío o "Por definir", lanzar error
+    if (!desayuno || !comida || !cena || !snackManana || !snackTarde || desayuno === 'Por definir' || comida === 'Por definir' || cena === 'Por definir' || snackManana === 'Por definir' || snackTarde === 'Por definir') {
+      throw new Error('El menú generado por la IA está incompleto.');
+    }
     normalizado[dia] = {
-      Desayuno: comidas.Desayuno || comidas.desayuno || 'Por definir',
-      Comida: comidas.Comida || comidas.comida || 'Por definir',
-      Cena: comidas.Cena || comidas.cena || 'Por definir',
-      'Snack mañana': comidas['Snack mañana'] || comidas['snack mañana'] || 'Por definir',
-      'Snack tarde': comidas['Snack tarde'] || comidas['snack tarde'] || 'Por definir',
+      Desayuno: desayuno,
+      Comida: comida,
+      Cena: cena,
+      'Snack mañana': snackManana,
+      'Snack tarde': snackTarde,
     };
   }
 

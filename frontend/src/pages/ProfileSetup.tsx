@@ -140,8 +140,7 @@ export default function ProfileSetup({ session }: { session: Session }) {
         });
 
       if (error) {
-        setError(error.message || 'Error al guardar el perfil');
-        setLoading(false);
+        navigate('/login', { replace: true });
         return;
       }
 

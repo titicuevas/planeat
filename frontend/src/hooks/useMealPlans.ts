@@ -268,6 +268,19 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
         }
         if (!success) {
           console.warn(`Fallo definitivo: No se pudieron obtener ingredientes para ${plato} tras 3 intentos.`);
+          // Añadir ingrediente de aviso para que la cesta nunca quede vacía
+          ingredients.push({
+            user_id: user.id,
+            meal_plan_id: mealPlanId,
+            week,
+            day: dia,
+            meal_type: tipo,
+            dish: plato,
+            ingredient: 'No disponible',
+            nombre: 'No disponible',
+            cantidad: '',
+            checked: false
+          });
         }
         for (const ingrediente of ingredientes) {
           let nombre = '', cantidad = '';
@@ -307,6 +320,5 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
     }
   } else {
     console.warn('No se generaron ingredientes para la lista de la compra.');
-    alert('No se pudo generar la lista de la compra. Puede que la IA no haya devuelto ingredientes.');
   }
 } 
