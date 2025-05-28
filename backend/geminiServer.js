@@ -32,35 +32,11 @@ app.post("/api/generate-menu", async (req, res) => {
     if (data.error) throw new Error(data.error.message);
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     if (!text || text.trim() === "") {
-      // Fallback: menú de ejemplo si la IA falla o responde vacío
-      const ejemplo = {
-        text: JSON.stringify({
-          lunes: { desayuno: "Tostadas", comida: "Pollo con arroz", cena: "Ensalada" },
-          martes: { desayuno: "Cereales", comida: "Pasta boloñesa", cena: "Tortilla" },
-          miercoles: { desayuno: "Fruta", comida: "Pescado al horno", cena: "Sopa" },
-          jueves: { desayuno: "Yogur", comida: "Lentejas", cena: "Pizza casera" },
-          viernes: { desayuno: "Galletas", comida: "Hamburguesa", cena: "Verduras salteadas" },
-          sabado: { desayuno: "Croissant", comida: "Paella", cena: "Queso y embutido" },
-          domingo: { desayuno: "Bizcocho", comida: "Asado", cena: "Ensalada de pasta" }
-        })
-      };
-      return res.json(ejemplo);
+      return res.status(500).json({ error: "La IA no devolvió ningún menú." });
     }
     res.json({ text });
   } catch (error) {
-    // Fallback: menú de ejemplo si la IA falla
-    const ejemplo = {
-      text: JSON.stringify({
-        lunes: { desayuno: "Tostadas", comida: "Pollo con arroz", cena: "Ensalada" },
-        martes: { desayuno: "Cereales", comida: "Pasta boloñesa", cena: "Tortilla" },
-        miercoles: { desayuno: "Fruta", comida: "Pescado al horno", cena: "Sopa" },
-        jueves: { desayuno: "Yogur", comida: "Lentejas", cena: "Pizza casera" },
-        viernes: { desayuno: "Galletas", comida: "Hamburguesa", cena: "Verduras salteadas" },
-        sabado: { desayuno: "Croissant", comida: "Paella", cena: "Queso y embutido" },
-        domingo: { desayuno: "Bizcocho", comida: "Asado", cena: "Ensalada de pasta" }
-      })
-    };
-    res.json(ejemplo);
+    res.status(500).json({ error: error.message || "Error generando menú con la IA" });
   }
 });
 

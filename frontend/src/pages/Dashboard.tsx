@@ -35,6 +35,7 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
   const [showMenuModal, setShowMenuModal] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   const [loadingAlternative, setLoadingAlternative] = useState<{dia: string, tipo: string} | null>(null)
+  const [menuError, setMenuError] = useState<string | null>(null)
 
   const {
     mealPlans,
@@ -58,6 +59,31 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
       navigate('/perfil', { replace: true });
     }
   }, [profile, navigate]);
+
+  // Obtener el menú de la semana actual o de la próxima si ya es sábado o domingo
+  const getCurrentWeekMenu = () => {
+    const now = new Date();
+    // Si es lunes o después, buscar el menú de la semana actual (a partir del lunes)
+    const baseMonday = new Date(now);
+    baseMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    baseMonday.setHours(0, 0, 0, 0);
+    const weekStr = baseMonday.toISOString().slice(0, 10);
+    let plan = mealPlans.find(plan => plan.week.slice(0, 10) === weekStr);
+    if (!plan) return null;
+    const menuNormalizado = normalizaMenuConSnacks(plan.meals, profile?.intolerances || []);
+    return { ...plan, meals: menuNormalizado };
+  }
+
+  const currentWeekPlan = getCurrentWeekMenu();
+  const menuParaMostrar = currentWeekPlan ? normalizaMenuConSnacks(getMenuHorizontal(currentWeekPlan.meals, profile?.intolerances || []), profile?.intolerances || []) : null;
+
+  useEffect(() => {
+    if (currentWeekPlan && (!currentWeekPlan.meals || Object.keys(currentWeekPlan.meals).length === 0)) {
+      setMenuError('El menú recibido para análisis nutricional está vacío o mal formateado. La IA no respondió correctamente.');
+    } else {
+      setMenuError(null);
+    }
+  }, [currentWeekPlan]);
 
   // Mostrar loader solo si está cargando y no hay planes ni se está creando uno
   const showLoader = plansLoading && !mealPlans.length && !creatingPlan && !creatingNextWeek;
@@ -199,23 +225,6 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
     }
   }
 
-  // Obtener el menú de la semana actual o de la próxima si ya es sábado o domingo
-  const getCurrentWeekMenu = () => {
-    const now = new Date();
-    // Si es lunes o después, buscar el menú de la semana actual (a partir del lunes)
-    const baseMonday = new Date(now);
-    baseMonday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    baseMonday.setHours(0, 0, 0, 0);
-    const weekStr = baseMonday.toISOString().slice(0, 10);
-    let plan = mealPlans.find(plan => plan.week.slice(0, 10) === weekStr);
-    if (!plan) return null;
-    const menuNormalizado = normalizaMenuConSnacks(plan.meals, profile?.intolerances || []);
-    return { ...plan, meals: menuNormalizado };
-  }
-
-  const currentWeekPlan = getCurrentWeekMenu()
-  const menuParaMostrar = currentWeekPlan ? normalizaMenuConSnacks(getMenuHorizontal(currentWeekPlan.meals, profile?.intolerances || []), profile?.intolerances || []) : null;
-
   // Detectar si el plan es de la próxima semana
   const isNextWeekPlan = currentWeekPlan && new Date(currentWeekPlan.week) > getBaseMondayForDisplay();
 
@@ -261,6 +270,22 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
         </button>
       </div>
     )
+  }
+
+  if (menuError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <span className="block sm:inline">{menuError}</span>
+        </div>
+        <button
+          onClick={() => navigate('/perfil', { replace: true })}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+        >
+          Ir a mi perfil
+        </button>
+      </div>
+    );
   }
 
   return (
