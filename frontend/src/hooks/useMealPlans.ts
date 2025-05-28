@@ -245,6 +245,9 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
       if (plato) {
         try {
           const ingredientes = await getIngredientesPlatoGemini(plato);
+          if (!ingredientes || ingredientes.length === 0) {
+            console.warn(`Gemini no devolvió ingredientes para: ${plato}`);
+          }
           for (const ingrediente of ingredientes) {
             let nombre = '', cantidad = '';
             try {
@@ -277,5 +280,8 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
   if (ingredients.length > 0) {
     const { error } = await supabase.from('shopping_list').insert(ingredients);
     if (error) console.error('Error guardando ingredientes:', error);
+    else console.log('Ingredientes guardados correctamente:', ingredients);
+  } else {
+    console.warn('No se generaron ingredientes para la lista de la compra.');
   }
 } 

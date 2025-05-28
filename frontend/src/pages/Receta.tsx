@@ -75,17 +75,18 @@ export default function Receta() {
       setLoading(true);
       setError(null);
       let nombrePlato = recetaId?.replace(/-/g, ' ') || '';
-      // Simplificar nombre: quitar paréntesis y palabras extra
-      nombrePlato = nombrePlato.replace(/\(.*?\)/g, '').replace(/con|y|de|en|el|la|los|las|un|una|unos|unas/gi, '').replace(/\s+/g, ' ').trim();
+      // Mejorar limpieza: solo quitar paréntesis, mantener palabras clave
+      nombrePlato = nombrePlato.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
       nombrePlato = normalizaNombre(nombrePlato);
       setNombreBuscado(nombrePlato);
-      // Generar variantes para buscar
+      // Generar variantes para buscar (con/sin tildes, minúsculas, etc.)
       let variantes = [
         nombrePlato,
-        removeDiacritics(nombrePlato).toLowerCase(),
+        removeDiacritics(nombrePlato),
         nombrePlato.toLowerCase(),
-        nombrePlato.replace(/con|y|de|en|el|la|los|las|un|una|unos|unas/gi, '').replace(/\s+/g, ' ').trim(),
-        removeDiacritics(nombrePlato).replace(/con|y|de|en|el|la|los|las|un|una|unos|unas/gi, '').replace(/\s+/g, ' ').trim().toLowerCase()
+        removeDiacritics(nombrePlato).toLowerCase(),
+        nombrePlato.replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ ]/g, '').trim(),
+        removeDiacritics(nombrePlato.replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ ]/g, '').trim())
       ];
       let recetaEncontrada = null;
       let errorFinal = '';
