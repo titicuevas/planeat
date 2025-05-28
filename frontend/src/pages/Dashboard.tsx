@@ -51,6 +51,14 @@ export default function Dashboard({ session, profile, setGenerandoCesta, handleL
     document.title = 'Dashboard - Planeat';
   }, []);
 
+  useEffect(() => {
+    if (!profile) return;
+    const incompleto = !profile.name || !profile.goal || !profile.intolerances || profile.intolerances.length === 0 || !profile.weight || !profile.height;
+    if (incompleto) {
+      navigate('/perfil', { replace: true });
+    }
+  }, [profile, navigate]);
+
   // Mostrar loader solo si está cargando y no hay planes ni se está creando uno
   const showLoader = plansLoading && !mealPlans.length && !creatingPlan && !creatingNextWeek;
 

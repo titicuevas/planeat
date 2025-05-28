@@ -119,13 +119,7 @@ const Register = () => {
         return;
       }
       if (data?.user) {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          email: formData.email,
-          name: '',
-          goal: '',
-          intolerances: []
-        });
+        // No crear perfil aquí. Se creará cuando el usuario complete el formulario de perfil.
       }
       setShowVerifyMsg(true);
       setLoading(false);
