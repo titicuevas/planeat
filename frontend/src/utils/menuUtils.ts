@@ -324,23 +324,27 @@ export function agruparIngredientesHumanizado(ingredientes: { nombre: string, ca
     return !INGREDIENTES_IGNORAR.some(ign => n.includes(ign));
   });
 
-  const grupos: { [key: string]: { nombre: string, totalMl: number, totalG: number, totalUnidades: number, otros: string[] } } = {};
+  const grupos: { [key: string]: { nombre: string, totalMl: number, totalG: number, totalUnidades: number, otros: string[], tipo: string } } = {};
   ingredientesFiltrados.forEach(ing => {
     const nombreUnificado = unificarNombreIngrediente(ing.nombre);
     const nombreNormalizado = nombreUnificado.toLowerCase();
     let cantidad = ing.cantidad.toLowerCase();
+    // Detectar tipo de ingrediente (líquido, sólido, unidad)
+    let tipo = 'unidad';
+    if (/ml|l/.test(cantidad)) tipo = 'liquido';
+    else if (/g|kg/.test(cantidad)) tipo = 'solido';
     if (!grupos[nombreNormalizado]) {
-      grupos[nombreNormalizado] = { nombre: nombreUnificado, totalMl: 0, totalG: 0, totalUnidades: 0, otros: [] };
+      grupos[nombreNormalizado] = { nombre: nombreUnificado, totalMl: 0, totalG: 0, totalUnidades: 0, otros: [], tipo };
     }
-    // Sumar cantidades útiles
+    // Sumar cantidades útiles SOLO si el tipo coincide
     const match = cantidad.match(/(\d+(?:[\.,]\d+)?)\s*(ml|g|kg|l|un|puñ|cda|cdta|diente|unidad|taza|botella|bote|paquete|barra|bolsa|malla)?/);
     if (match) {
       let valor = parseFloat(match[1].replace(',', '.'));
       let unidad = (match[2] || '').toLowerCase();
-      if (unidad === 'ml' || unidad === 'l') {
+      if ((unidad === 'ml' || unidad === 'l') && tipo === 'liquido') {
         if (unidad === 'l') valor *= 1000;
         grupos[nombreNormalizado].totalMl += valor;
-      } else if (unidad === 'g' || unidad === 'kg') {
+      } else if ((unidad === 'g' || unidad === 'kg') && tipo === 'solido') {
         if (unidad === 'kg') valor *= 1000;
         grupos[nombreNormalizado].totalG += valor;
       } else if (unidad === 'un' || unidad === 'unidad' || unidad === 'diente' || unidad === 'taza' || unidad === 'botella' || unidad === 'bote' || unidad === 'paquete' || unidad === 'barra' || unidad === 'bolsa' || unidad === 'malla') {
@@ -355,7 +359,19 @@ export function agruparIngredientesHumanizado(ingredientes: { nombre: string, ca
   // Generar cantidades de compra realistas y convertir a kg/litros si corresponde
   return Object.values(grupos).map(grupo => {
     const n = grupo.nombre.toLowerCase();
-    if (grupo.totalMl > 0) {
+    // Si es un fruto seco, almendra, nuez, etc. nunca mostrar en litros
+    if (n.includes('almendra') || n.includes('nuez') || n.includes('frutos secos')) {
+      if (grupo.totalG > 0) {
+        if (grupo.totalG >= 1000) {
+          const kilos = (grupo.totalG / 1000).toFixed(2).replace('.00', '');
+          return { nombre: grupo.nombre, cantidad: `${kilos} kg` };
+        }
+        const bolsas = Math.ceil(grupo.totalG / 200);
+        return { nombre: grupo.nombre, cantidad: `${bolsas} bolsa${bolsas > 1 ? 's' : ''} (200 g)` };
+      }
+      return { nombre: grupo.nombre, cantidad: '1 bolsa (200 g)' };
+    }
+    if (grupo.totalMl > 0 && grupo.tipo === 'liquido') {
       if (grupo.totalMl >= 1000) {
         const litros = (grupo.totalMl / 1000).toFixed(2).replace('.00', '');
         return { nombre: grupo.nombre, cantidad: `${litros} l` };
@@ -363,24 +379,15 @@ export function agruparIngredientesHumanizado(ingredientes: { nombre: string, ca
       const botellas = Math.ceil(grupo.totalMl / 500);
       return { nombre: grupo.nombre, cantidad: `${botellas} botella${botellas > 1 ? 's' : ''} (500 ml)` };
     }
-    if (grupo.totalG > 0) {
+    if (grupo.totalG > 0 && grupo.tipo === 'solido') {
       if (grupo.totalG >= 1000) {
         const kilos = (grupo.totalG / 1000).toFixed(2).replace('.00', '');
         return { nombre: grupo.nombre, cantidad: `${kilos} kg` };
       }
-      if (n.includes('arroz') || n.includes('pasta') || n.includes('quinoa') || n.includes('frutos secos') || n.includes('almendra') || n.includes('nuez') || n.includes('avena')) {
+      if (n.includes('arroz') || n.includes('pasta') || n.includes('quinoa') || n.includes('avena')) {
         const paquetes = Math.ceil(grupo.totalG / 500);
         return { nombre: grupo.nombre, cantidad: `${paquetes} paquete${paquetes > 1 ? 's' : ''} (500 g)` };
       }
-      if (n.includes('carne') || n.includes('pollo') || n.includes('pescado')) {
-        const bandejas = Math.ceil(grupo.totalG / 400);
-        return { nombre: grupo.nombre, cantidad: `${bandejas} bandeja${bandejas > 1 ? 's' : ''} (400 g)` };
-      }
-      if (n.includes('queso')) {
-        const cuñas = Math.ceil(grupo.totalG / 250);
-        return { nombre: grupo.nombre, cantidad: `${cuñas} cuña${cuñas > 1 ? 's' : ''} (250 g)` };
-      }
-      // Por defecto
       return { nombre: grupo.nombre, cantidad: `${grupo.totalG} g` };
     }
     if (grupo.totalUnidades > 0) {
@@ -405,6 +412,20 @@ export function agruparIngredientesHumanizado(ingredientes: { nombre: string, ca
     }
     return { nombre: grupo.nombre, cantidad: '1 unidad' };
   });
+}
+
+// Detección de menús repetidos
+export function hayPlatosRepetidos(menu: Record<string, any>): boolean {
+  const platos = new Set<string>();
+  for (const dia of Object.keys(menu)) {
+    for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
+      const plato = menu[dia]?.[tipo]?.toLowerCase().trim();
+      if (!plato) continue;
+      if (platos.has(plato)) return true;
+      platos.add(plato);
+    }
+  }
+  return false;
 }
 
 // Nuevo cálculo de valores nutricionales realistas

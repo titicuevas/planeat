@@ -242,37 +242,34 @@ export default function Cesta({ session, profile }: { session: Session, profile:
             {Object.entries(ingredientesPorTipo).map(([categoria, items]) => (
               <div key={categoria} className="mb-6">
                 <h2 className="text-2xl font-bold text-green-800 dark:text-green-300 mb-3 border-b-2 border-green-300 dark:border-green-700 pb-1 sticky top-0 bg-white dark:bg-secondary-800 z-10">{categoria}</h2>
-                {items.map(item => {
-                  // Buscar si está checked en la lista original
-                  const checked = ingredients.find(i => unificarNombreIngrediente(i.nombre) === unificarNombreIngrediente(item.nombre))?.checked || false;
-                  return (
-                    <div key={item.nombre} className="py-2">
-                      <table className="w-full text-sm mb-2 min-w-[350px]">
-                        <thead>
-                          <tr>
-                            <th className="text-left text-green-700 dark:text-green-400 pb-2 w-1/12"></th>
-                            <th className="text-left text-green-700 dark:text-green-400 pb-2 w-7/12 min-w-[180px]">Ingrediente</th>
-                            <th className="text-right text-green-700 dark:text-green-400 pb-2 w-4/12 min-w-[80px]">Cantidad</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="py-1 text-center">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={e => handleCheck(item.nombre, e.target.checked)}
-                                className="accent-green-600 dark:accent-green-500 w-5 h-5 rounded border-gray-300 dark:border-secondary-600 focus:ring-green-500 transition-all"
-                              />
-                            </td>
-                            <td className={`py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.nombre}</td>
-                            <td className={`py-1 text-secondary-700 dark:text-secondary-300 text-right ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.cantidad}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })}
+                <table className="w-full text-sm mb-2 min-w-[350px]">
+                  <thead>
+                    <tr>
+                      <th className="text-left text-green-700 dark:text-green-400 pb-2 w-1/12"></th>
+                      <th className="text-left text-green-700 dark:text-green-400 pb-2 w-7/12 min-w-[180px]">Ingrediente</th>
+                      <th className="text-right text-green-700 dark:text-green-400 pb-2 w-4/12 min-w-[80px]">Cantidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map(item => {
+                      const checked = ingredients.find(i => unificarNombreIngrediente(i.nombre) === unificarNombreIngrediente(item.nombre))?.checked || false;
+                      return (
+                        <tr key={item.nombre}>
+                          <td className="py-1 text-center">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={e => handleCheck(item.nombre, e.target.checked)}
+                              className="accent-green-600 dark:accent-green-500 w-5 h-5 rounded border-gray-300 dark:border-secondary-600 focus:ring-green-500 transition-all"
+                            />
+                          </td>
+                          <td className={`py-1 text-secondary-900 dark:text-secondary-100 font-medium text-left ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.nombre}</td>
+                          <td className={`py-1 text-secondary-700 dark:text-secondary-300 text-right ${checked ? 'line-through text-gray-400 dark:text-secondary-500' : ''}`}>{item.cantidad}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             ))}
           </div>
