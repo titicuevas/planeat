@@ -30,6 +30,8 @@ function AppContent() {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [profileRetry, setProfileRetry] = useState(0);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [showProfileRetry, setShowProfileRetry] = useState(false);
 
   // Loader global solo si está cargando sesión o perfil
   const showGlobalLoader = loading || !sessionChecked || loadingProfile;
@@ -96,6 +98,8 @@ function AppContent() {
     const fetchProfile = async () => {
       if (session) {
         setLoadingProfile(true);
+        setProfileError(null);
+        setShowProfileRetry(false);
         const { data, error } = await supabase
           .from('profiles')
           .select('name, goal, intolerances, weight, height')
@@ -109,6 +113,31 @@ function AppContent() {
             } catch {
               data.intolerances = [];
             }
+          }
+        }
+        if (!data && !error) {
+          // Si no existe perfil, lo creamos automáticamente
+          console.info('No existe perfil, creando perfil vacío para el usuario...');
+          const { error: insertError } = await supabase.from('profiles').insert({
+            id: session.user.id,
+            name: '',
+            goal: '',
+            intolerances: [],
+            weight: null,
+            height: null
+          });
+          if (insertError) {
+            console.error('Error creando perfil tras registro:', insertError);
+            setProfileError('No se pudo crear tu perfil automáticamente. Por favor, contacta con soporte o reintenta más tarde.');
+            setProfile(null);
+            setProfileLoaded(false);
+            setLoadingProfile(false);
+            setShowProfileRetry(true);
+            return;
+          } else {
+            // Volver a intentar cargar el perfil tras crearlo
+            setTimeout(fetchProfile, 500);
+            return;
           }
         }
         if (error && error.code !== 'PGRST116') {
@@ -127,6 +156,10 @@ function AppContent() {
           retryCount++;
           setProfileRetry(retryCount);
           retryTimeout = setTimeout(fetchProfile, 500);
+        } else if (!profileData && retryCount >= 5) {
+          setProfileError('No se pudo cargar tu perfil. Por favor, reintenta o cierra sesión.');
+          setShowProfileRetry(true);
+          setLoadingProfile(false);
         } else {
           setLoadingProfile(false);
         }
@@ -190,6 +223,17 @@ function AppContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-secondary-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+        {profileError && (
+          <div className="fixed top-10 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-xl shadow-lg z-50 text-center mt-8">
+            <div className="font-bold mb-2">{profileError}</div>
+            {showProfileRetry && (
+              <div className="flex flex-col gap-2 items-center">
+                <button onClick={() => window.location.reload()} className="bg-green-600 text-white px-4 py-2 rounded font-semibold shadow hover:bg-green-700">Reintentar</button>
+                <button onClick={handleLogout} className="bg-gray-400 text-white px-4 py-2 rounded font-semibold shadow hover:bg-gray-500">Cerrar sesión</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     )
   }
