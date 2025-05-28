@@ -116,9 +116,9 @@ function AppContent() {
           }
         }
         if (!data && !error) {
-          // Si no existe perfil, lo creamos automáticamente
+          // Si no existe perfil, lo creamos automáticamente (ahora con upsert)
           console.info('No existe perfil, creando perfil vacío para el usuario...');
-          const { error: insertError } = await supabase.from('profiles').insert({
+          const { error: upsertError } = await supabase.from('profiles').upsert({
             id: session.user.id,
             name: '',
             goal: '',
@@ -127,8 +127,8 @@ function AppContent() {
             height: null,
             email: session.user.email
           });
-          if (insertError) {
-            console.error('Error creando perfil tras registro:', insertError?.message || insertError);
+          if (upsertError) {
+            console.error('Error creando perfil tras registro:', upsertError?.message || upsertError);
             setProfileError('No se pudo crear tu perfil automáticamente. Por favor, contacta con soporte o reintenta más tarde.');
             setProfile(null);
             setProfileLoaded(false);
