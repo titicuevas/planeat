@@ -100,7 +100,7 @@ export default function Receta() {
       for (let intento of variantes) {
         try {
           console.log('Buscando receta con nombre:', intento);
-          const res = await fetch('/api/receta-detalle', {
+          const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://planeat-backend.up.railway.app'}/api/receta-detalle`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nombre: intento })

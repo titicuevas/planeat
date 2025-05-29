@@ -135,7 +135,7 @@ export async function testGeminiAPI() {
 }
 
 export async function getIngredientesPlatoGemini(plato: string) {
-  const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ingredientes-plato`, {
+  const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://planeat-backend.up.railway.app'}/api/ingredientes-plato`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ plato })
