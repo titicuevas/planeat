@@ -89,7 +89,8 @@ app.post("/api/receta-detalle", async (req, res) => {
     let receta = null;
     let errorFinal = '';
     for (let intento of variantes) {
-      const prompt = `Eres un chef profesional. Dame la receta detallada para preparar el siguiente plato: "${intento}".\nDevuelve SOLO un JSON con los siguientes campos:\n- "nombre": nombre del plato\n- "ingredientes": array de objetos con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Pollo", "cantidad": "1 kg"}, ...])\n- "pasos": array de strings, cada uno es un paso de la elaboración\nNo incluyas explicaciones ni texto fuera del JSON. Si no conoces la receta, invéntala de forma realista y devuelve SIEMPRE el JSON pedido.`;
+      // Prompt ultra estricto
+      const prompt = `Eres un chef profesional. Dame la receta detallada para preparar el siguiente plato: "${intento}".\nDevuelve SOLO un JSON válido con los siguientes campos:\n- "nombre": nombre del plato\n- "ingredientes": array de objetos con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Pollo", "cantidad": "1 kg"}, ...])\n- "pasos": array de strings, cada uno es un paso de la elaboración\nNo incluyas explicaciones ni texto fuera del JSON. Si no conoces la receta, INVÉNTALA de forma realista y devuelve SIEMPRE el JSON pedido. Si devuelves texto fuera del JSON, el sistema fallará.`;
       const body = {
         contents: [{ parts: [{ text: prompt }] }]
       };
@@ -102,6 +103,7 @@ app.post("/api/receta-detalle", async (req, res) => {
         const data = await response.json();
         if (data.error) throw new Error(data.error.message);
         let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        console.log('Respuesta cruda de Gemini para receta:', text);
         // Limpia si viene envuelto en markdown
         const matchJsonBlock = text.match(/```json[\s\n]*([\s\S]*?)```/);
         if (matchJsonBlock) text = matchJsonBlock[1];
