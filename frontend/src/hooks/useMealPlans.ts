@@ -243,15 +243,27 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
     console.error('No hay usuario autenticado para guardar la lista de la compra.');
     return;
   }
+  // Función para normalizar texto (minúscula, sin tildes, sin guiones)
+  const normalizarTexto = (texto: string) => texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').replace(/\./g, '').replace(/\-/g, ' ').replace(/_/g, ' ').trim();
+  // Crear un mapa de días normalizados para búsqueda rápida
+  const menuNormalizado = Object.entries(menu).reduce((acc, [key, value]) => {
+    acc[normalizarTexto(key)] = value;
+    return acc;
+  }, {} as Record<string, Record<string, string>>);
+  const tiposComida = ['desayuno', 'comida', 'cena', 'snack manana', 'snack tarde'];
   const ingredients: any[] = [];
   for (const dia of WEEK_DAYS) {
-    // Solo procesar días desde hoy en adelante
-    const now = new Date();
-    const diaSemana = now.getDay() === 0 ? 6 : now.getDay() - 1; // 0=lunes, 6=domingo
-    const indexDia = WEEK_DAYS.indexOf(dia);
-    if (indexDia < diaSemana) continue;
-    for (const tipo of ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde']) {
-      const plato = menu[dia]?.[tipo];
+    const diaNormalizado = normalizarTexto(dia);
+    const comidas = menuNormalizado[diaNormalizado] || {};
+    for (const tipo of tiposComida) {
+      // Buscar variantes del tipo de comida
+      let plato = '';
+      for (const key of Object.keys(comidas)) {
+        if (normalizarTexto(key) === tipo) {
+          plato = comidas[key];
+          break;
+        }
+      }
       if (plato) {
         let ingredientes: any[] = [];
         let success = false;
@@ -273,7 +285,6 @@ async function saveIngredientsToShoppingList(mealPlanId: string, menu: Record<st
         }
         if (!success) {
           console.warn(`Fallo definitivo: No se pudieron obtener ingredientes para ${plato} tras 3 intentos.`);
-          // Añadir ingrediente de aviso para que la cesta nunca quede vacía
           ingredients.push({
             user_id: user.id,
             meal_plan_id: mealPlanId,

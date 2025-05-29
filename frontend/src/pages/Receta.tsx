@@ -58,6 +58,8 @@ function normalizaNombre(nombre: string) {
   for (const [sin, con] of mapa) {
     if (n.includes(sin)) n = n.replace(sin, con);
   }
+  // Normalizar: minúscula, sin tildes, sin guiones, sin paréntesis, sin puntos
+  n = n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').replace(/\./g, '').replace(/\-/g, ' ').replace(/_/g, ' ').replace(/\(.*?\)/g, '').trim();
   // Capitaliza
   return n.replace(/\b\w/g, l => l.toUpperCase());
 }
