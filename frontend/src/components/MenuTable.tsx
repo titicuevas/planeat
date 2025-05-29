@@ -79,31 +79,58 @@ export function MenuTable({ menu, onSuggestAlternative, intolerances, verSemanaC
     if (loadingCell) return; // Evitar múltiples solicitudes simultáneas
     setLoadingCell({ dia, tipo });
     try {
-      const alternativa = await onSuggestAlternative(dia, tipo, platoActual);
-      const result = await Swal.fire({
-        title: '¿Quieres cambiar el plato?',
-        text: `Sugerencia: ${alternativa}`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, cambiar',
-        cancelButtonText: 'No',
-        confirmButtonColor: '#22c55e',
-      });
-      if (result.isConfirmed) {
-        const nuevoMenu = { ...menuLocal };
-        if (!nuevoMenu[dia]) {
-          nuevoMenu[dia] = {
-            Desayuno: '',
-            Comida: '',
-            Cena: '',
-            'Snack mañana': '',
-            'Snack tarde': ''
-          };
+      let alternativasMostradas: Set<string> = new Set([platoActual]);
+      let alternativa = platoActual;
+      let seguir = true;
+      while (seguir) {
+        alternativa = await onSuggestAlternative(dia, tipo, alternativa);
+        if (typeof alternativa !== 'string') {
+          throw new Error('La alternativa debe ser un string');
         }
-        nuevoMenu[dia] = { ...nuevoMenu[dia], [tipo]: alternativa };
-        setMenuLocal(nuevoMenu);
+        // Evitar mostrar la misma alternativa varias veces
+        if (alternativasMostradas.has(alternativa)) {
+          await Swal.fire('Sin más alternativas', 'No se encontraron más alternativas diferentes. Intenta más tarde.', 'info');
+          break;
+        }
+        alternativasMostradas.add(alternativa);
+        const result = await Swal.fire({
+          title: '¿Quieres cambiar el plato?',
+          html: `
+            <div class="text-left">
+              <p class="mb-2"><b>Plato actual:</b> ${platoActual}</p>
+              <p><b>Sugerencia:</b> ${alternativa}</p>
+            </div>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, cambiar',
+          cancelButtonText: 'No, otra sugerencia',
+          confirmButtonColor: '#22c55e',
+        });
+        if (result.isConfirmed) {
+          const nuevoMenu = { ...menuLocal };
+          if (!nuevoMenu[dia]) {
+            nuevoMenu[dia] = {
+              Desayuno: '',
+              Comida: '',
+              Cena: '',
+              'Snack mañana': '',
+              'Snack tarde': ''
+            };
+          }
+          nuevoMenu[dia] = { ...nuevoMenu[dia], [tipo]: alternativa };
+          setMenuLocal(nuevoMenu);
+          seguir = false;
+          setLoadingCell(null);
+          return; // Salir inmediatamente tras confirmar
+        } else {
+          // Si el usuario pulsa 'No', se vuelve a pedir otra alternativa
+          if (alternativasMostradas.size > 5) {
+            await Swal.fire('Sin más alternativas', 'No se encontraron más alternativas diferentes. Intenta más tarde.', 'info');
+            seguir = false;
+          }
+        }
       }
-      // Si no confirma, no se cambia nada
     } catch (err) {
       Swal.fire('Error', 'No se pudo sugerir alternativa', 'error');
     } finally {
