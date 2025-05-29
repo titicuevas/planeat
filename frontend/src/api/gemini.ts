@@ -123,33 +123,12 @@ export async function testGeminiAPI() {
 }
 
 export async function getIngredientesPlatoGemini(plato: string) {
-  const prompt = `Eres un nutricionista experto. Dame la lista de ingredientes necesarios para preparar el siguiente plato: "${plato}". Devuelve SOLO la lista de ingredientes en formato JSON como un array de objetos, cada uno con "nombre" y "cantidad" (por ejemplo: [{"nombre": "Arroz", "cantidad": "100g"}, ...]). No incluyas explicaciones, solo el array JSON.`;
-  const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/generate-menu`, {
+  const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/ingredientes-plato`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ plato })
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
-  console.log('Respuesta cruda de Gemini para ingredientes:', data);
-  try {
-    let ingredientes;
-    // Si la respuesta viene en bloque markdown, extraer el array
-    const matchJsonBlock = data.text.match(/```json[\s\n]*([\s\S]*?)```/);
-    if (matchJsonBlock) {
-      ingredientes = JSON.parse(matchJsonBlock[1]);
-    } else {
-      ingredientes = JSON.parse(data.text);
-    }
-    if (Array.isArray(ingredientes)) return ingredientes;
-    // Si la respuesta no es un array, intentar extraer el array de un texto
-    const match = data.text.match(/\[[^\]]*\]/);
-    if (match) {
-      return JSON.parse(match[0]);
-    }
-    throw new Error('No se pudo extraer un array de ingredientes de la respuesta de Gemini');
-  } catch (err) {
-    console.error('Error en getIngredientesPlatoGemini:', err);
-    return [];
-  }
+  return data.ingredientes;
 }
