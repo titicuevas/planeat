@@ -107,8 +107,11 @@ export default function Receta() {
           });
           if (res.ok) {
             const data = await res.json();
-            recetaEncontrada = data;
-            break;
+            // Si el backend responde con una receta válida, úsala SIEMPRE
+            if (data && data.nombre && data.ingredientes && data.pasos) {
+              recetaEncontrada = data;
+              break;
+            }
           }
         } catch (err: any) {
           errorFinal = err.message || 'Error desconocido';
@@ -116,9 +119,9 @@ export default function Receta() {
       }
       if (recetaEncontrada) {
         setReceta(recetaEncontrada);
+        setError(null);
       } else {
         console.warn('No se encontró la receta para ninguno de los nombres probados:', variantes);
-        // Receta de ejemplo por defecto si no se encuentra
         setReceta({
           nombre: nombrePlato,
           ingredientes: [

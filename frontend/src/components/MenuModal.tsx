@@ -121,9 +121,9 @@ const MenuModal: React.FC<MenuModalProps> = ({
         const menuNormalizado = normalizaMenuConSnacks(nuevoMenu);
         setMenuLocal(menuNormalizado);
         seguir = false;
+        break;
       } else {
         // Si el usuario pulsa 'No', se vuelve a pedir otra alternativa
-        // Si ya se han mostrado muchas alternativas, salir
         if (alternativasMostradas.size > 5) {
           await Swal.fire('Sin más alternativas', 'No se encontraron más alternativas diferentes. Intenta más tarde.', 'info');
           seguir = false;
@@ -248,7 +248,7 @@ const MenuModal: React.FC<MenuModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleSuggestAlternative(keyMenu, tipo, menuLocal[keyMenu]?.[tipo] || '')}
-                            disabled={!!loadingAlternative}
+                            disabled={!!loadingAlternative || savingEdit}
                             className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 disabled:opacity-50"
                             title="Sugerir alternativa"
                           >
