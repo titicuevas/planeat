@@ -18,7 +18,17 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 app.post("/api/generate-menu", async (req, res) => {
   try {
     // Prompt estricto para Gemini
-    const prompt = `Eres un nutricionista experto. Genera un menú semanal saludable en formato JSON puro, con las claves en minúscula: 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'. Cada día debe tener OBLIGATORIAMENTE los campos: 'desayuno', 'comida', 'cena', 'snack mañana', 'snack tarde'. No repitas ningún plato en toda la semana. Devuelve SOLO el JSON, sin explicaciones ni texto fuera del JSON. Ejemplo de formato:\n{\n  "lunes": { "desayuno": "...", "comida": "...", "cena": "...", "snack mañana": "...", "snack tarde": "..." },\n  ...\n}`;
+    const prompt = `Genera un menú semanal en formato JSON puro, sin ningún texto adicional. El JSON debe tener la siguiente estructura exacta:
+    {
+      "lunes": { "desayuno": "plato1", "comida": "plato2", "cena": "plato3" },
+      "martes": { "desayuno": "plato4", "comida": "plato5", "cena": "plato6" },
+      "miercoles": { "desayuno": "plato7", "comida": "plato8", "cena": "plato9" },
+      "jueves": { "desayuno": "plato10", "comida": "plato11", "cena": "plato12" },
+      "viernes": { "desayuno": "plato13", "comida": "plato14", "cena": "plato15" },
+      "sabado": { "desayuno": "plato16", "comida": "plato17", "cena": "plato18" },
+      "domingo": { "desayuno": "plato19", "comida": "plato20", "cena": "plato21" }
+    }
+    IMPORTANTE: No incluyas NINGÚN texto fuera del JSON. Si devuelves texto fuera del JSON, el sistema fallará.`;
     const body = {
       contents: [{
         parts: [{ text: prompt }]
