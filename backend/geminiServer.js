@@ -17,18 +17,8 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 
 app.post("/api/generate-menu", async (req, res) => {
   try {
-    // Prompt estricto para Gemini
-    const prompt = `Genera un menú semanal en formato JSON puro, sin ningún texto adicional. El JSON debe tener la siguiente estructura exacta:
-    {
-      "lunes": { "desayuno": "plato1", "comida": "plato2", "cena": "plato3" },
-      "martes": { "desayuno": "plato4", "comida": "plato5", "cena": "plato6" },
-      "miercoles": { "desayuno": "plato7", "comida": "plato8", "cena": "plato9" },
-      "jueves": { "desayuno": "plato10", "comida": "plato11", "cena": "plato12" },
-      "viernes": { "desayuno": "plato13", "comida": "plato14", "cena": "plato15" },
-      "sabado": { "desayuno": "plato16", "comida": "plato17", "cena": "plato18" },
-      "domingo": { "desayuno": "plato19", "comida": "plato20", "cena": "plato21" }
-    }
-    IMPORTANTE: No incluyas NINGÚN texto fuera del JSON. Si devuelves texto fuera del JSON, el sistema fallará.`;
+    // Prompt ultra estricto para Gemini
+    const prompt = `Genera un menú semanal en formato JSON puro, sin ningún texto adicional. El JSON debe tener exactamente 7 días: lunes, martes, miércoles, jueves, viernes, sábado, domingo. Cada día debe tener OBLIGATORIAMENTE las claves: desayuno, comida, cena, snack mañana, snack tarde. No repitas ningún plato. Devuelve SOLO el JSON, sin explicaciones ni texto fuera del JSON. Si devuelves texto fuera del JSON, el sistema fallará.`;
     const body = {
       contents: [{
         parts: [{ text: prompt }]
@@ -42,16 +32,18 @@ app.post("/api/generate-menu", async (req, res) => {
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
     let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // Limpia si viene envuelto en markdown
+    const matchJsonBlock = text.match(/```json[\s\n]*([\s\S]*?)```/);
+    if (matchJsonBlock) text = matchJsonBlock[1];
     let menu = null;
     try {
-      // Extraer solo el bloque JSON si viene envuelto en texto
       const match = text.match(/\{[\s\S]*\}/);
       if (match) {
         menu = JSON.parse(match[0]);
       } else {
         menu = JSON.parse(text);
       }
-      // Normalizar claves a minúscula (días y comidas)
+      // Normaliza claves a minúscula
       const normalizaMenu = (menu) => {
         const dias = Object.keys(menu);
         const nuevoMenu = {};
@@ -71,12 +63,10 @@ app.post("/api/generate-menu", async (req, res) => {
       menu = null;
     }
     if (!menu) {
-      // Si la IA falla, responde con error 500 y mensaje claro
       return res.status(500).json({ error: "No se pudo generar el menú con la IA. Intenta de nuevo más tarde." });
     }
     res.json({ menu });
   } catch (err) {
-    // Si la IA falla, responde con error 500 y mensaje claro
     return res.status(500).json({ error: "No se pudo generar el menú con la IA. Intenta de nuevo más tarde." });
   }
 });
