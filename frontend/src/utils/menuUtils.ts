@@ -127,14 +127,20 @@ export function normalizaMenuConSnacks(
 
 export function getMenuHorizontal(menu: Record<string, Partial<DiaComidas>>, intolerancias: string[] = []): Record<string, DiaComidas> {
   const normalizado: Record<string, DiaComidas> = {};
-  const tiposComida = ['Desayuno', 'Comida', 'Cena', 'Snack mañana', 'Snack tarde'];
+  const tiposComida = ['desayuno', 'comida', 'cena', 'snack mañana', 'snack tarde'];
 
   // Función auxiliar para normalizar texto (quitar tildes, espacios y convertir a minúsculas)
   const normalizarTexto = (texto: string) => {
     return texto
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[0-]/g, c => c.normalize('NFD').replace(/\p{Diacritic}/gu, ''))
+      .replace(/\s+/g, ' ')
+      .replace(/\s/g, ' ')
+      .replace(/\./g, '')
+      .replace(/\-/g, ' ')
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
       .trim();
   };
 
@@ -152,8 +158,8 @@ export function getMenuHorizontal(menu: Record<string, Partial<DiaComidas>>, int
       Desayuno: comidas?.Desayuno || comidas?.desayuno || '',
       Comida: comidas?.Comida || comidas?.comida || '',
       Cena: comidas?.Cena || comidas?.cena || '',
-      'Snack mañana': comidas?.['Snack mañana'] || comidas?.['snack mañana'] || '',
-      'Snack tarde': comidas?.['Snack tarde'] || comidas?.['snack tarde'] || '',
+      'Snack mañana': comidas?.['Snack mañana'] || comidas?.['snack mañana'] || comidas?.['snack manana'] || '',
+      'Snack tarde': comidas?.['Snack tarde'] || comidas?.['snack tarde'] || comidas?.['snack tarde'] || '',
     };
   }
   return normalizado;
