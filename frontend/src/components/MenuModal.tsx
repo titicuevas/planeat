@@ -47,6 +47,9 @@ const MenuModal: React.FC<MenuModalProps> = ({
   const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
     try {
       const alternativa = await onSuggestAlternative(dia, tipo, platoActual);
+      if (typeof alternativa !== 'string') {
+        throw new Error('La alternativa debe ser un string');
+      }
       const result = await Swal.fire({
         title: '¿Quieres cambiar el plato?',
         text: `Sugerencia: ${alternativa}`,
@@ -58,6 +61,15 @@ const MenuModal: React.FC<MenuModalProps> = ({
       });
       if (result.isConfirmed) {
         const nuevoMenu = { ...menuLocal };
+        if (!nuevoMenu[dia]) {
+          nuevoMenu[dia] = {
+            Desayuno: '',
+            Comida: '',
+            Cena: '',
+            'Snack mañana': '',
+            'Snack tarde': ''
+          };
+        }
         nuevoMenu[dia] = { ...nuevoMenu[dia], [tipo]: alternativa };
         const menuNormalizado = normalizaMenuConSnacks(nuevoMenu);
         setMenuLocal(menuNormalizado);

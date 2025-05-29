@@ -17,8 +17,9 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 
 app.post("/api/generate-menu", async (req, res) => {
   try {
-    // Prompt ultra estricto para Gemini
-    const prompt = `Genera un menú semanal en formato JSON puro, sin ningún texto adicional. El JSON debe tener exactamente 7 días: lunes, martes, miércoles, jueves, viernes, sábado, domingo. Cada día debe tener OBLIGATORIAMENTE las claves: desayuno, comida, cena, snack mañana, snack tarde. No repitas ningún plato. Devuelve SOLO el JSON, sin explicaciones ni texto fuera del JSON. Si devuelves texto fuera del JSON, el sistema fallará.`;
+    const { prompt } = req.body;
+    const isAlternativeRequest = prompt.includes("alternativa para el siguiente plato");
+
     const body = {
       contents: [{
         parts: [{ text: prompt }]
@@ -32,7 +33,13 @@ app.post("/api/generate-menu", async (req, res) => {
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
     let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    // Limpia si viene envuelto en markdown
+
+    if (isAlternativeRequest) {
+      // Para alternativas, devolvemos el texto directamente
+      return res.json({ menu: text.trim() });
+    }
+
+    // Para menús completos, procesamos el JSON
     const matchJsonBlock = text.match(/```json[\s\n]*([\s\S]*?)```/);
     if (matchJsonBlock) text = matchJsonBlock[1];
     let menu = null;

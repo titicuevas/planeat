@@ -40,6 +40,18 @@ export async function generateMenuWithGemini({
 
   if (platoActual && dia && tipo) {
     prompt = `Eres un nutricionista experto. Necesito una alternativa para el siguiente plato que contiene ingredientes no aptos para el usuario:\nPlato actual: "${platoActual}"\nDía: ${dia}\nTipo de comida: ${tipo}\nObjetivo del usuario: "${objetivo}"\n${datosUsuario}${intoleranciasTexto}\n${requerimientos}\n\nPor favor, sugiere una alternativa saludable y deliciosa que:\n1. No contenga ninguno de los ingredientes no aptos\n2. Sea compatible con el objetivo del usuario\n3. Sea fácil de preparar\n4. Sea similar en tipo de comida (por ejemplo, si es un plato principal, sugiere otro plato principal)\n\nDevuelve SOLO el nombre del plato alternativo, sin explicaciones adicionales.`;
+
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/generate-menu`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt })
+    });
+    const data = await res.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    // Para alternativas, esperamos un string directo
+    return data.menu?.toString() || platoActual;
   } else {
     prompt = `Eres un nutricionista experto. Crea un menú semanal saludable, variado y equilibrado para una persona.\n\nOBJETIVO DEL USUARIO: ${objetivo}\n${datosUsuario}\n${requerimientos}\nIMPORTANTE: No incluyas ningún plato ni ingrediente que contenga: ${intolerancias.length > 0 ? intolerancias.join(', ') : 'ninguna intolerancia'}. Si el usuario es intolerante a un alimento, no debe aparecer en ninguna comida bajo ningún concepto.\n\nREQUISITOS:\n- Devuelve SOLO un JSON válido, sin explicaciones ni texto fuera del JSON.\n- El JSON debe tener los días de la semana en minúscula como claves ("lunes", "martes", ...).${diasTexto}\n- Para cada día, incluye los campos: "Desayuno", "Comida", "Cena", "Snack mañana", "Snack tarde".\n- NO repitas el mismo plato en ningún día ni comida de la semana. Cada comida debe ser única en toda la semana. Si repites algún plato, el menú será inválido.\n- Ejemplo de formato:\n{\n  "lunes": { "Desayuno": "Avena con frutas", "Comida": "Ensalada de pollo", "Cena": "Sopa de verduras", "Snack mañana": "Fruta fresca", "Snack tarde": "Yogur vegetal" },\n  ...\n}\n- No incluyas explicaciones, solo el JSON.`;
   }
