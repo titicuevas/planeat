@@ -174,6 +174,7 @@ export function getSnackSaludable(intolerancias: string[]): string {
 }
 
 export function analizarMenu(menu: Record<string, DiaComidas>) {
+  // Ampliar el diccionario de ingredientes y sinónimos
   const estimaciones = {
     carbohidratos: {
       arroz: 45,
@@ -186,14 +187,30 @@ export function analizarMenu(menu: Record<string, DiaComidas>) {
       legumbre: 20,
       fruta: 15,
       batata: 25,
-      maíz: 20
+      maiz: 20,
+      "maíz": 20,
+      platano: 20,
+      "plátano": 20,
+      banana: 20,
+      batido: 10,
+      bebida: 10,
+      muesli: 20,
+      granola: 20,
+      galleta: 20,
+      tortilla: 10,
+      "bebida de arroz": 10,
+      "bebida de soja": 10,
+      "bebida de almendra": 10,
+      "bebida vegetal": 10
     },
     proteinas: {
       pollo: 30,
       pavo: 30,
       huevo: 12,
-      atún: 25,
-      salmón: 22,
+      atun: 25,
+      "atún": 25,
+      salmon: 22,
+      "salmón": 22,
       carne: 25,
       ternera: 25,
       tofu: 15,
@@ -203,44 +220,67 @@ export function analizarMenu(menu: Record<string, DiaComidas>) {
       pescado: 20,
       marisco: 20,
       soja: 15,
-      proteína: 25,
-      jamón: 20,
+      proteina: 25,
+      "proteína": 25,
+      jamon: 20,
+      "jamón": 20,
       bacalao: 20,
       merluza: 20,
       gambas: 20,
       calamares: 15,
       pechuga: 30,
       hamburguesa: 20,
-      legumbre: 15
+      guisante: 15,
+      "proteína de guisante": 20,
+      "proteína de arroz": 20,
+      "proteína de soja": 20,
+      "proteína vegetal": 20,
+      "leche": 8,
+      "leche de coco": 5,
+      "leche de almendra": 5,
+      "leche de avena": 5
     },
     grasas: {
       aceite: 14,
       aguacate: 15,
       nuez: 15,
       almendra: 15,
-      'frutos secos': 15,
+      "frutos secos": 15,
       mantequilla: 12,
       queso: 10,
       oliva: 14,
       semilla: 10,
       mayonesa: 12,
-      sésamo: 10,
+      sesamo: 10,
+      "sésamo": 10,
       cacahuete: 15,
-      chía: 10,
-      coco: 12
+      chia: 10,
+      "chía": 10,
+      coco: 12,
+      "leche de coco": 10,
+      "crema de cacahuete": 15
     }
   };
 
   let total = { carbohidratos: 0, proteinas: 0, grasas: 0, calorias: 0 };
 
-  for (const dia of WEEK_DAYS) {
-    const comidas = menu[dia];
-    if (!comidas) continue;
+  // Normalizar menú antes de analizar
+  const normalizarTexto = (texto: string) => texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const menuNormalizado: Record<string, DiaComidas> = {};
+  for (const dia of Object.keys(menu)) {
+    const diaNorm = normalizarTexto(dia);
+    menuNormalizado[diaNorm] = {} as DiaComidas;
+    for (const tipo of Object.keys(menu[dia]) as (keyof DiaComidas)[]) {
+      menuNormalizado[diaNorm][tipo] = menu[dia][tipo];
+    }
+  }
 
+  for (const dia of ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']) {
+    const comidas = menuNormalizado[dia];
+    if (!comidas) continue;
     for (const tipo of Object.keys(comidas) as (keyof DiaComidas)[]) {
       const plato = (comidas[tipo] || '').toLowerCase();
       if (!plato || plato === 'por definir') continue;
-
       // Calcular macros basados en ingredientes
       for (const macro in estimaciones) {
         const ingredientes = estimaciones[macro as keyof typeof estimaciones];
@@ -250,22 +290,21 @@ export function analizarMenu(menu: Record<string, DiaComidas>) {
           }
         }
       }
-
       // Ajustar calorías según el tipo de comida
       if (tipo === 'Desayuno' || tipo === 'Snack mañana' || tipo === 'Snack tarde') {
-        total.calorias += 300; // Aumentado de 200 a 300 para snacks
+        total.calorias += 300;
       } else if (tipo === 'Comida' || tipo === 'Cena') {
-        total.calorias += 600; // Aumentado de 400 a 600 para comidas principales
+        total.calorias += 600;
       }
     }
   }
-
   // Ajustar valores finales
   total.carbohidratos = Math.round(total.carbohidratos);
   total.proteinas = Math.round(total.proteinas);
   total.grasas = Math.round(total.grasas);
   total.calorias = Math.round(total.calorias);
-
+  // Log para depuración
+  console.log('Macros calculados:', total);
   return total;
 }
 

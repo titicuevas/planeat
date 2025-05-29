@@ -3,10 +3,11 @@ import { Dialog } from '@headlessui/react';
 import { format } from 'date-fns';
 import { WEEK_DAYS } from '../types/dashboard';
 import { getBaseMondayForDisplay } from '../utils/dateUtils';
-import { analizarMenu, normalizaMenuConSnacks } from '../utils/menuUtils';
+import { analizarMenu, normalizaMenuConSnacks, calcularMacrosReales } from '../utils/menuUtils';
 import type { MealPlan, DiaComidas } from '../types/dashboard';
 import Swal from 'sweetalert2';
 import { es } from 'date-fns/locale';
+import { getIngredientesPlatoGemini } from '../api/gemini';
 
 interface MenuModalProps {
   plan: MealPlan;
@@ -39,12 +40,49 @@ const MenuModal: React.FC<MenuModalProps> = ({
 }: MenuModalProps) => {
   const [savingEdit, setSavingEdit] = useState(false);
   const [menuLocal, setMenuLocal] = useState<Record<string, DiaComidas>>(() => menuDetail ? normalizaMenuConSnacks(menuDetail) : {});
+  const [macrosReales, setMacrosReales] = useState<{carbohidratos:number,proteinas:number,grasas:number,calorias:number}|null>(null);
+  const [loadingMacros, setLoadingMacros] = useState(false);
 
   React.useEffect(() => {
     setMenuLocal(menuDetail ? normalizaMenuConSnacks(menuDetail) : {});
   }, [menuDetail]);
 
+  // Nuevo: calcular macros reales al abrir el modal o cambiar el menú
+  React.useEffect(() => {
+    async function calcularMacrosSemana() {
+      setLoadingMacros(true);
+      try {
+        const menu = normalizaMenuConSnacks(menuLocal);
+        let ingredientesSemana: {nombre:string,cantidad:string}[] = [];
+        for (const dia of Object.keys(menu)) {
+          const comidas = menu[dia];
+          for (const tipo of Object.keys(comidas) as (keyof DiaComidas)[]) {
+            const plato = comidas[tipo];
+            if (plato && plato !== 'Por definir') {
+              try {
+                const ingredientes = await getIngredientesPlatoGemini(plato);
+                if (Array.isArray(ingredientes)) {
+                  ingredientesSemana = ingredientesSemana.concat(ingredientes);
+                }
+              } catch (e) {
+                // Si falla, ignora ese plato
+              }
+            }
+          }
+        }
+        const macros = calcularMacrosReales(ingredientesSemana);
+        setMacrosReales(macros);
+      } catch {
+        setMacrosReales(null);
+      } finally {
+        setLoadingMacros(false);
+      }
+    }
+    calcularMacrosSemana();
+  }, [menuLocal]);
+
   const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
+    console.log('Handler de alternativa llamado:', dia, tipo, platoActual);
     try {
       const alternativa = await onSuggestAlternative(dia, tipo, platoActual);
       if (typeof alternativa !== 'string') {
@@ -86,8 +124,9 @@ const MenuModal: React.FC<MenuModalProps> = ({
   if (!menuLocal || !plan) return null;
 
   // Log para depuración de valores nutricionales
-  console.log('Menú recibido para análisis nutricional:', menuLocal);
-  const analisis = analizarMenu(menuLocal);
+  const menuAnalizar = normalizaMenuConSnacks(menuLocal);
+  console.log('Menú recibido para análisis nutricional:', menuAnalizar);
+  const analisis = analizarMenu(menuAnalizar);
   const totalMacros = analisis.carbohidratos + analisis.proteinas + analisis.grasas;
   if (analisis.carbohidratos === 0 && analisis.proteinas === 0 && analisis.grasas === 0) {
     console.warn('El menú recibido para análisis nutricional está vacío o mal formateado.');
@@ -135,6 +174,20 @@ const MenuModal: React.FC<MenuModalProps> = ({
     fechaInicioSemana = new Date(plan.week);
     fechaFinSemana = new Date(plan.week);
     fechaFinSemana.setDate(fechaInicioSemana.getDate() + diasAMostrar.length - 1);
+  }
+
+  // Mostrar loader o valores reales
+  let macrosContent = null;
+  if (loadingMacros) {
+    macrosContent = <div className="text-center text-green-600 dark:text-green-400">Calculando valores nutricionales reales...</div>;
+  } else if (macrosReales) {
+    macrosContent = (
+      <div className="text-center text-green-700 dark:text-green-400 mt-2">
+        <b>Valores estimados para toda la semana (reales):</b><br/>
+        🥖 Carbohidratos: {macrosReales.carbohidratos} g &nbsp; 🍗 Proteínas: {macrosReales.proteinas} g &nbsp; 🥑 Grasas: {macrosReales.grasas} g<br/>
+        🔥 Calorías estimadas: {macrosReales.calorias} kcal
+      </div>
+    );
   }
 
   return (
@@ -205,6 +258,7 @@ const MenuModal: React.FC<MenuModalProps> = ({
             })}
           </div>
         </div>
+        {macrosContent}
       </div>
     </div>
   );
