@@ -121,19 +121,9 @@ export default function Receta() {
         setReceta(recetaEncontrada);
         setError(null);
       } else {
-        console.warn('No se encontró la receta para ninguno de los nombres probados:', variantes);
-        setReceta({
-          nombre: nombrePlato,
-          ingredientes: [
-            { nombre: 'Ingrediente 1', cantidad: '1 unidad' },
-            { nombre: 'Ingrediente 2', cantidad: '100 g' }
-          ],
-          pasos: [
-            'Paso 1: Preparar los ingredientes.',
-            'Paso 2: Cocinar según la receta.'
-          ]
-        });
-        setError('No se pudo obtener la receta original. Se muestra una receta de ejemplo.');
+        // Solo si hay un error real en la comunicación con el backend
+        setError('Error al comunicarse con el servidor. Por favor, intenta de nuevo.');
+        setReceta(null);
       }
       setLoading(false);
     }

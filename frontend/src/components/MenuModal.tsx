@@ -83,7 +83,7 @@ const MenuModal: React.FC<MenuModalProps> = ({
 
   const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
     console.log('Handler de alternativa llamado:', dia, tipo, platoActual);
-    let alternativasMostradas: Set<string> = new Set();
+    let alternativasMostradas: Set<string> = new Set([platoActual]); // Incluir el plato actual en el historial
     let alternativa = platoActual;
     let seguir = true;
     while (seguir) {
@@ -99,11 +99,16 @@ const MenuModal: React.FC<MenuModalProps> = ({
       alternativasMostradas.add(alternativa);
       const result = await Swal.fire({
         title: '¿Quieres cambiar el plato?',
-        text: `Sugerencia: ${alternativa}`,
+        html: `
+          <div class="text-left">
+            <p class="mb-2"><b>Plato actual:</b> ${platoActual}</p>
+            <p><b>Sugerencia:</b> ${alternativa}</p>
+          </div>
+        `,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, cambiar',
-        cancelButtonText: 'No',
+        cancelButtonText: 'No, otra sugerencia',
         confirmButtonColor: '#22c55e',
       });
       if (result.isConfirmed) {
@@ -121,7 +126,7 @@ const MenuModal: React.FC<MenuModalProps> = ({
         const menuNormalizado = normalizaMenuConSnacks(nuevoMenu);
         setMenuLocal(menuNormalizado);
         seguir = false;
-        break;
+        return; // Salir inmediatamente tras confirmar
       } else {
         // Si el usuario pulsa 'No', se vuelve a pedir otra alternativa
         if (alternativasMostradas.size > 5) {
