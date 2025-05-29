@@ -83,11 +83,20 @@ const MenuModal: React.FC<MenuModalProps> = ({
 
   const handleSuggestAlternative = async (dia: string, tipo: keyof DiaComidas, platoActual: string) => {
     console.log('Handler de alternativa llamado:', dia, tipo, platoActual);
-    try {
-      const alternativa = await onSuggestAlternative(dia, tipo, platoActual);
+    let alternativasMostradas: Set<string> = new Set();
+    let alternativa = platoActual;
+    let seguir = true;
+    while (seguir) {
+      alternativa = await onSuggestAlternative(dia, tipo, alternativa);
       if (typeof alternativa !== 'string') {
         throw new Error('La alternativa debe ser un string');
       }
+      // Evitar mostrar la misma alternativa varias veces
+      if (alternativasMostradas.has(alternativa)) {
+        await Swal.fire('Sin más alternativas', 'No se encontraron más alternativas diferentes. Intenta más tarde.', 'info');
+        break;
+      }
+      alternativasMostradas.add(alternativa);
       const result = await Swal.fire({
         title: '¿Quieres cambiar el plato?',
         text: `Sugerencia: ${alternativa}`,
@@ -111,12 +120,14 @@ const MenuModal: React.FC<MenuModalProps> = ({
         nuevoMenu[dia] = { ...nuevoMenu[dia], [tipo]: alternativa };
         const menuNormalizado = normalizaMenuConSnacks(nuevoMenu);
         setMenuLocal(menuNormalizado);
-      }
-    } catch (err: any) {
-      if (err.message && err.message.includes('overloaded')) {
-        await Swal.fire('IA saturada', 'El modelo de IA está saturado, inténtalo de nuevo en unos minutos.', 'warning');
+        seguir = false;
       } else {
-        await Swal.fire('Error', 'No se pudo sugerir alternativa. Intenta de nuevo.', 'error');
+        // Si el usuario pulsa 'No', se vuelve a pedir otra alternativa
+        // Si ya se han mostrado muchas alternativas, salir
+        if (alternativasMostradas.size > 5) {
+          await Swal.fire('Sin más alternativas', 'No se encontraron más alternativas diferentes. Intenta más tarde.', 'info');
+          seguir = false;
+        }
       }
     }
   };
